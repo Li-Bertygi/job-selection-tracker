@@ -2,6 +2,7 @@ package com.hyunwoo.jobselectiontracker.common.exception
 
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
+import org.springframework.http.converter.HttpMessageNotReadableException
 import org.springframework.web.bind.MethodArgumentNotValidException
 import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.bind.annotation.RestControllerAdvice
@@ -50,6 +51,23 @@ class GlobalExceptionHandler {
                     message = "入力値を確認してください。",
                     timestamp = LocalDateTime.now(),
                     errors = errors
+                )
+            )
+    }
+
+    /** JSON構造不正や必須値欠落によるリクエスト読み取り失敗を400へ変換する。 */
+    @ExceptionHandler(HttpMessageNotReadableException::class)
+    fun handleHttpMessageNotReadableException(
+        exception: HttpMessageNotReadableException
+    ): ResponseEntity<ErrorResponse> {
+        return ResponseEntity
+            .status(HttpStatus.BAD_REQUEST)
+            .body(
+                ErrorResponse(
+                    status = HttpStatus.BAD_REQUEST.value(),
+                    error = HttpStatus.BAD_REQUEST.reasonPhrase,
+                    message = exception.mostSpecificCause?.message ?: "リクエスト本文を正しく読み取れませんでした。",
+                    timestamp = LocalDateTime.now()
                 )
             )
     }

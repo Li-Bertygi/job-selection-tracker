@@ -55,7 +55,7 @@ class CompanyService(
         request.websiteUrl?.let { company.websiteUrl = it.trim() }
         request.memo?.let { company.memo = it.trim() }
 
-        return CompanyResponse.from(company)
+        return CompanyResponse.from(companyRepository.saveAndFlush(company))
     }
 
     /** 指定された企業IDのレコードを削除する。 */

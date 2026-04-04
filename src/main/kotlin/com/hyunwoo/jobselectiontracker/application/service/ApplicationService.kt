@@ -71,7 +71,7 @@ class ApplicationService(
         request.priority?.let { application.priority = it }
         request.isArchived?.let { application.isArchived = it }
 
-        return ApplicationResponse.from(application)
+        return ApplicationResponse.from(applicationRepository.saveAndFlush(application))
     }
 
     /** 指定された応募情報IDのレコードを削除する。 */
