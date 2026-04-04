@@ -225,7 +225,7 @@ curl.exe --% http://localhost:8080/applications/9999
 - `APPLICATION`
 - `INFO_SESSION`
 - `DOCUMENT_SCREENING`
-- `WEB_TEST`
+- `TEST`
 - `CASUAL_MEETING`
 - `INTERVIEW`
 - `OFFERED`
@@ -241,12 +241,46 @@ curl.exe --% http://localhost:8080/applications/9999
 企業ごとに異なる選考フローに対応するため、
 ステージを独立テーブルとして管理
 
+#### 主な管理項目
+- `application_id`
+- `stage_order`
+- `stage_type`
+- `stage_name`
+- `status`
+- `scheduled_at`
+- `completed_at`
+- `result_date`
+- `memo`
+
 #### ステータス例
-- `pending`
-- `scheduled`
-- `completed`
-- `passed`
-- `failed`
+- `PENDING`
+- `SCHEDULED`
+- `COMPLETED`
+- `PASSED`
+- `FAILED`
+
+#### ステージ種別例
+- `INFO_SESSION`
+- `DOCUMENT_SCREENING`
+- `CODING_TEST`
+- `APTITUDE_TEST`
+- `FIRST_CASUAL_MEETING`
+- `SECOND_CASUAL_MEETING`
+- `THIRD_CASUAL_MEETING`
+- `FIRST_INTERVIEW`
+- `SECOND_INTERVIEW`
+- `THIRD_INTERVIEW`
+- `FOURTH_INTERVIEW`
+- `FINAL_INTERVIEW`
+- `OTHER`
+
+#### 役割分担
+- `stage_type` はステージの中分類を表す
+- `stage_name` は企業ごとの実際の表示名を自由入力で保持する
+
+例:
+- `stage_type = FIRST_INTERVIEW`
+- `stage_name = 一次面接(人事面接)`
 
 ---
 
@@ -320,7 +354,8 @@ curl.exe --% http://localhost:8080/applications/9999
 
 例:
 - `applications.status = INTERVIEW`
-- `stages.name = 一次面接`
+- `stages.stage_type = FIRST_INTERVIEW`
+- `stages.stage_name = 一次面接`
 - `stages.status = SCHEDULED`
 
 ---
@@ -376,7 +411,7 @@ curl.exe --% http://localhost:8080/applications/9999
 - `APPLICATION`
 - `INFO_SESSION`
 - `DOCUMENT_SCREENING`
-- `WEB_TEST`
+- `TEST`
 - `CASUAL_MEETING`
 - `INTERVIEW`
 - `OFFERED`

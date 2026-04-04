@@ -17,8 +17,8 @@ enum class ApplicationStatus {
     /** 書類選考段階。 */
     DOCUMENT_SCREENING,
 
-    /** Webテスト段階。 */
-    WEB_TEST,
+    /** テスト段階。Webテスト、コーディングテスト、適性検査などを含む。 */
+    TEST,
 
     /** 面談段階。 */
     CASUAL_MEETING,
