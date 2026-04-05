@@ -173,11 +173,24 @@ curl.exe --% -X POST http://localhost:8080/applications -H "Content-Type: applic
 curl.exe --% http://localhost:8080/applications
 ```
 
+#### 選考ステージ登録
+
+```bash
+curl.exe --% -X POST http://localhost:8080/applications/1/stages -H "Content-Type: application/json" -d "{\"stageOrder\":1,\"stageType\":\"FIRST_INTERVIEW\",\"stageName\":\"一次面接(人事面接)\",\"status\":\"SCHEDULED\",\"scheduledAt\":\"2026-04-10T14:00:00\",\"memo\":\"オンライン面接\"}"
+```
+
+#### 選考ステージ一覧取得
+
+```bash
+curl.exe --% http://localhost:8080/applications/1/stages
+```
+
 #### 存在しないID確認
 
 ```bash
 curl.exe --% http://localhost:8080/companies/9999
 curl.exe --% http://localhost:8080/applications/9999
+curl.exe --% -X PATCH http://localhost:8080/stages/9999 -H "Content-Type: application/json" -d "{\"status\":\"COMPLETED\"}"
 ```
 
 ### 補足

@@ -55,6 +55,23 @@ class GlobalExceptionHandler {
             )
     }
 
+    /** 業務ルール違反などの不正な要求を400 Bad Requestへ変換する。 */
+    @ExceptionHandler(IllegalArgumentException::class)
+    fun handleIllegalArgumentException(
+        exception: IllegalArgumentException
+    ): ResponseEntity<ErrorResponse> {
+        return ResponseEntity
+            .status(HttpStatus.BAD_REQUEST)
+            .body(
+                ErrorResponse(
+                    status = HttpStatus.BAD_REQUEST.value(),
+                    error = HttpStatus.BAD_REQUEST.reasonPhrase,
+                    message = exception.message ?: "不正なリクエストです。",
+                    timestamp = LocalDateTime.now()
+                )
+            )
+    }
+
     /** JSON構造不正や必須値欠落によるリクエスト読み取り失敗を400へ変換する。 */
     @ExceptionHandler(HttpMessageNotReadableException::class)
     fun handleHttpMessageNotReadableException(
@@ -66,7 +83,7 @@ class GlobalExceptionHandler {
                 ErrorResponse(
                     status = HttpStatus.BAD_REQUEST.value(),
                     error = HttpStatus.BAD_REQUEST.reasonPhrase,
-                    message = exception.mostSpecificCause?.message ?: "リクエスト本文を正しく読み取れませんでした。",
+                    message = exception.mostSpecificCause.message ?: "リクエスト本文を正しく読み取れませんでした。",
                     timestamp = LocalDateTime.now()
                 )
             )
