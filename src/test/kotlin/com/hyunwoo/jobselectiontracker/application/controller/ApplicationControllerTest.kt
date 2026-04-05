@@ -1,6 +1,9 @@
 package com.hyunwoo.jobselectiontracker.application.controller
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.hyunwoo.jobselectiontracker.application.entity.Application
+import com.hyunwoo.jobselectiontracker.application.entity.ApplicationStatus
+import com.hyunwoo.jobselectiontracker.application.history.repository.ApplicationStatusHistoryRepository
 import com.hyunwoo.jobselectiontracker.application.repository.ApplicationRepository
 import com.hyunwoo.jobselectiontracker.company.entity.Company
 import com.hyunwoo.jobselectiontracker.company.repository.CompanyRepository
@@ -13,6 +16,7 @@ import org.springframework.http.MediaType
 import org.springframework.test.context.ActiveProfiles
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
+import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
@@ -32,10 +36,14 @@ class ApplicationControllerTest {
     private lateinit var applicationRepository: ApplicationRepository
 
     @Autowired
+    private lateinit var applicationStatusHistoryRepository: ApplicationStatusHistoryRepository
+
+    @Autowired
     private lateinit var companyRepository: CompanyRepository
 
     @BeforeEach
     fun setUp() {
+        applicationStatusHistoryRepository.deleteAll()
         applicationRepository.deleteAll()
         companyRepository.deleteAll()
     }
@@ -103,5 +111,46 @@ class ApplicationControllerTest {
         mockMvc.perform(get("/applications/9999"))
             .andExpect(status().isNotFound)
             .andExpect(jsonPath("$.status").value(404))
+    }
+
+    @Test
+    fun `PATCH applications with changed status creates status history`() {
+        val application = createApplication(status = ApplicationStatus.APPLICATION)
+        val request = mapOf("status" to "INTERVIEW")
+
+        mockMvc.perform(
+            patch("/applications/${application.id}")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request))
+        )
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.status").value("INTERVIEW"))
+
+        val histories = applicationStatusHistoryRepository.findAllByApplicationIdOrderByChangedAtDesc(application.id!!)
+        kotlin.test.assertEquals(1, histories.size)
+        kotlin.test.assertEquals(ApplicationStatus.APPLICATION, histories[0].fromStatus)
+        kotlin.test.assertEquals(ApplicationStatus.INTERVIEW, histories[0].toStatus)
+    }
+
+    private fun createApplication(status: ApplicationStatus): Application {
+        val company = companyRepository.save(
+            Company(
+                name = "OpenAI",
+                industry = "AI",
+                websiteUrl = "https://openai.com",
+                memo = "テスト企業"
+            )
+        )
+
+        return applicationRepository.save(
+            Application(
+                company = company,
+                jobTitle = "Backend Engineer",
+                applicationRoute = "Wantedly",
+                status = status,
+                priority = 1,
+                isArchived = false
+            )
+        )
     }
 }
