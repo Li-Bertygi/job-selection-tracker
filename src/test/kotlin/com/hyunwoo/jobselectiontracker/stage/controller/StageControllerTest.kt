@@ -7,6 +7,10 @@ import com.hyunwoo.jobselectiontracker.application.repository.ApplicationReposit
 import com.hyunwoo.jobselectiontracker.company.entity.Company
 import com.hyunwoo.jobselectiontracker.company.repository.CompanyRepository
 import com.hyunwoo.jobselectiontracker.schedule.repository.ScheduleRepository
+import com.hyunwoo.jobselectiontracker.stage.entity.Stage
+import com.hyunwoo.jobselectiontracker.stage.entity.StageStatus
+import com.hyunwoo.jobselectiontracker.stage.entity.StageType
+import com.hyunwoo.jobselectiontracker.stage.history.repository.StageStatusHistoryRepository
 import com.hyunwoo.jobselectiontracker.stage.repository.StageRepository
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -17,6 +21,7 @@ import org.springframework.http.MediaType
 import org.springframework.test.context.ActiveProfiles
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
+import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
@@ -44,9 +49,13 @@ class StageControllerTest {
     @Autowired
     private lateinit var scheduleRepository: ScheduleRepository
 
+    @Autowired
+    private lateinit var stageStatusHistoryRepository: StageStatusHistoryRepository
+
     @BeforeEach
     fun setUp() {
         scheduleRepository.deleteAll()
+        stageStatusHistoryRepository.deleteAll()
         stageRepository.deleteAll()
         applicationRepository.deleteAll()
         companyRepository.deleteAll()
@@ -77,12 +86,12 @@ class StageControllerTest {
     fun `POST stages with duplicate stageOrder returns bad request`() {
         val application = createApplication()
         stageRepository.save(
-            com.hyunwoo.jobselectiontracker.stage.entity.Stage(
+            Stage(
                 application = application,
                 stageOrder = 1,
-                stageType = com.hyunwoo.jobselectiontracker.stage.entity.StageType.FIRST_INTERVIEW,
+                stageType = StageType.FIRST_INTERVIEW,
                 stageName = "一次面接",
-                status = com.hyunwoo.jobselectiontracker.stage.entity.StageStatus.PENDING
+                status = StageStatus.PENDING
             )
         )
 
@@ -109,13 +118,42 @@ class StageControllerTest {
             .andExpect(jsonPath("$.status").value(404))
     }
 
+    @Test
+    fun `PATCH stages with changed status creates status history`() {
+        val application = createApplication()
+        val stage = stageRepository.save(
+            Stage(
+                application = application,
+                stageOrder = 1,
+                stageType = StageType.FIRST_INTERVIEW,
+                stageName = "一次面接",
+                status = StageStatus.SCHEDULED
+            )
+        )
+
+        val request = mapOf("status" to "COMPLETED")
+
+        mockMvc.perform(
+            patch("/stages/${stage.id}")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request))
+        )
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.status").value("COMPLETED"))
+
+        val histories = stageStatusHistoryRepository.findAllByStageIdOrderByChangedAtDesc(stage.id!!)
+        kotlin.test.assertEquals(1, histories.size)
+        kotlin.test.assertEquals(StageStatus.SCHEDULED, histories[0].fromStatus)
+        kotlin.test.assertEquals(StageStatus.COMPLETED, histories[0].toStatus)
+    }
+
     private fun createApplication(): Application {
         val company = companyRepository.save(
             Company(
                 name = "OpenAI",
                 industry = "AI",
                 websiteUrl = "https://openai.com",
-                memo = "テスト企業"
+                memo = "企業メモ"
             )
         )
 

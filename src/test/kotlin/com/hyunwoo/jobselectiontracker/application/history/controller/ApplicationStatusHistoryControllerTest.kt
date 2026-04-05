@@ -18,6 +18,7 @@ import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
+import java.time.LocalDateTime
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -53,14 +54,16 @@ class ApplicationStatusHistoryControllerTest {
             ApplicationStatusHistory(
                 application = application,
                 fromStatus = ApplicationStatus.APPLICATION,
-                toStatus = ApplicationStatus.INTERVIEW
+                toStatus = ApplicationStatus.INTERVIEW,
+                changedAt = LocalDateTime.of(2026, 4, 6, 2, 0, 0)
             )
         )
         applicationStatusHistoryRepository.save(
             ApplicationStatusHistory(
                 application = application,
                 fromStatus = ApplicationStatus.INTERVIEW,
-                toStatus = ApplicationStatus.OFFERED
+                toStatus = ApplicationStatus.OFFERED,
+                changedAt = LocalDateTime.of(2026, 4, 6, 3, 0, 0)
             )
         )
 
