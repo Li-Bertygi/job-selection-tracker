@@ -33,7 +33,7 @@ class User(
     var email: String,
 
     /** BCrypt などで暗号化して保存するパスワード。 */
-    @Column(nullable = false, length = 255)
+    @Column(name = "password_hash", nullable = false, length = 255)
     var password: String,
 
     /** 画面表示やプロフィール確認に使用する名前。 */
