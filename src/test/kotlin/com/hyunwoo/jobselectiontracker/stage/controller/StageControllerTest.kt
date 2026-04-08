@@ -12,6 +12,9 @@ import com.hyunwoo.jobselectiontracker.stage.entity.StageStatus
 import com.hyunwoo.jobselectiontracker.stage.entity.StageType
 import com.hyunwoo.jobselectiontracker.stage.history.repository.StageStatusHistoryRepository
 import com.hyunwoo.jobselectiontracker.stage.repository.StageRepository
+import com.hyunwoo.jobselectiontracker.user.entity.User
+import com.hyunwoo.jobselectiontracker.user.repository.UserRepository
+import kotlin.test.assertEquals
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
@@ -30,7 +33,7 @@ import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
-@WithMockUser
+@WithMockUser(username = "test@example.com")
 class StageControllerTest {
 
     @Autowired
@@ -54,6 +57,9 @@ class StageControllerTest {
     @Autowired
     private lateinit var stageStatusHistoryRepository: StageStatusHistoryRepository
 
+    @Autowired
+    private lateinit var userRepository: UserRepository
+
     @BeforeEach
     fun setUp() {
         scheduleRepository.deleteAll()
@@ -61,6 +67,7 @@ class StageControllerTest {
         stageRepository.deleteAll()
         applicationRepository.deleteAll()
         companyRepository.deleteAll()
+        userRepository.deleteAll()
     }
 
     @Test
@@ -144,9 +151,9 @@ class StageControllerTest {
             .andExpect(jsonPath("$.status").value("COMPLETED"))
 
         val histories = stageStatusHistoryRepository.findAllByStageIdOrderByChangedAtDesc(stage.id!!)
-        kotlin.test.assertEquals(1, histories.size)
-        kotlin.test.assertEquals(StageStatus.SCHEDULED, histories[0].fromStatus)
-        kotlin.test.assertEquals(StageStatus.COMPLETED, histories[0].toStatus)
+        assertEquals(1, histories.size)
+        assertEquals(StageStatus.SCHEDULED, histories[0].fromStatus)
+        assertEquals(StageStatus.COMPLETED, histories[0].toStatus)
     }
 
     private fun createApplication(): Application {
@@ -155,12 +162,13 @@ class StageControllerTest {
                 name = "OpenAI",
                 industry = "AI",
                 websiteUrl = "https://openai.com",
-                memo = "企業メモ"
+                memo = "志望度高め"
             )
         )
 
         return applicationRepository.save(
             Application(
+                user = createUser(),
                 company = company,
                 jobTitle = "Backend Engineer",
                 applicationRoute = "Wantedly",
@@ -169,5 +177,16 @@ class StageControllerTest {
                 isArchived = false
             )
         )
+    }
+
+    private fun createUser(): User {
+        return userRepository.findByEmail("test@example.com")
+            ?: userRepository.save(
+                User(
+                    email = "test@example.com",
+                    password = "encoded-password",
+                    name = "テストユーザー"
+                )
+            )
     }
 }

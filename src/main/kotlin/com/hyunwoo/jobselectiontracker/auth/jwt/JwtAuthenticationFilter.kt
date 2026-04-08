@@ -33,7 +33,7 @@ class JwtAuthenticationFilter(
             val principal = AuthenticatedUser(
                 userId = jwtTokenProvider.getUserId(token),
                 email = jwtTokenProvider.getEmail(token),
-                name = jwtTokenProvider.getName(token)
+                displayName = jwtTokenProvider.getName(token)
             )
 
             val authentication = UsernamePasswordAuthenticationToken(

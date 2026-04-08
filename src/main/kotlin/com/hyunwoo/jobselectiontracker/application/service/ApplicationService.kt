@@ -10,31 +10,43 @@ import com.hyunwoo.jobselectiontracker.application.history.repository.Applicatio
 import com.hyunwoo.jobselectiontracker.application.repository.ApplicationRepository
 import com.hyunwoo.jobselectiontracker.company.entity.Company
 import com.hyunwoo.jobselectiontracker.company.repository.CompanyRepository
+import com.hyunwoo.jobselectiontracker.user.entity.User
+import com.hyunwoo.jobselectiontracker.user.repository.UserRepository
+import org.springframework.security.core.context.SecurityContextHolder
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.util.NoSuchElementException
 
 /**
- * 応募情報ドメインのビジネスロジックを担当するサービス。
- * 企業存在確認、応募情報CRUD、ステータス変更履歴の自動記録を行う。
+ * 応募情報の作成、取得、更新、削除を担当するサービス。
+ * 応募作成時には現在ログイン中のユーザーを所有者として関連付ける。
  */
 @Service
 @Transactional(readOnly = true)
 class ApplicationService(
-    /** 応募情報エンティティの保存と取得を担当するリポジトリ。 */
+    /** 応募情報の永続化を担当するリポジトリ。 */
     private val applicationRepository: ApplicationRepository,
-    /** 企業存在確認に使用するリポジトリ。 */
+
+    /** 応募先企業の取得に使用するリポジトリ。 */
     private val companyRepository: CompanyRepository,
-    /** 応募全体のステータス変更履歴を保存するリポジトリ。 */
+
+    /** 現在ログイン中ユーザーの取得に使用するリポジトリ。 */
+    private val userRepository: UserRepository,
+
+    /** 応募ステータス変更履歴の保存に使用するリポジトリ。 */
     private val applicationStatusHistoryRepository: ApplicationStatusHistoryRepository
 ) {
 
-    /** 新しい応募情報を登録する。 */
+    /**
+     * 現在認証されているユーザーを所有者として応募情報を作成する。
+     */
     @Transactional
     fun createApplication(request: CreateApplicationRequest): ApplicationResponse {
+        val user = findCurrentUser()
         val company = findCompanyById(request.companyId)
 
         val application = Application(
+            user = user,
             company = company,
             jobTitle = request.jobTitle.trim(),
             applicationRoute = request.applicationRoute?.trim(),
@@ -49,19 +61,25 @@ class ApplicationService(
         return ApplicationResponse.from(applicationRepository.save(application))
     }
 
-    /** 登録済みの応募情報一覧を取得する。 */
+    /**
+     * 応募情報一覧を取得する。
+     */
     fun getApplications(): List<ApplicationResponse> {
         return applicationRepository.findAll()
             .map(ApplicationResponse::from)
     }
 
-    /** 指定した応募情報の詳細を取得する。 */
+    /**
+     * 指定した応募情報IDの詳細を取得する。
+     */
     fun getApplication(id: Long): ApplicationResponse {
-        val application = findApplicationById(id)
-        return ApplicationResponse.from(application)
+        return ApplicationResponse.from(findApplicationById(id))
     }
 
-    /** 指定した応募情報を部分更新する。 */
+    /**
+     * 指定した応募情報を更新する。
+     * ステータスが変化した場合は履歴を自動保存する。
+     */
     @Transactional
     fun updateApplication(id: Long, request: UpdateApplicationRequest): ApplicationResponse {
         val application = findApplicationById(id)
@@ -83,14 +101,17 @@ class ApplicationService(
         return ApplicationResponse.from(savedApplication)
     }
 
-    /** 指定した応募情報を削除する。 */
+    /**
+     * 指定した応募情報を削除する。
+     */
     @Transactional
     fun deleteApplication(id: Long) {
-        val application = findApplicationById(id)
-        applicationRepository.delete(application)
+        applicationRepository.delete(findApplicationById(id))
     }
 
-    /** 応募情報IDで応募情報を取得し、存在しなければ404対象の例外を投げる。 */
+    /**
+     * 応募情報IDで応募情報を取得し、存在しない場合は 404 用例外を送出する。
+     */
     private fun findApplicationById(id: Long): Application {
         return applicationRepository.findById(id)
             .orElseThrow {
@@ -98,7 +119,9 @@ class ApplicationService(
             }
     }
 
-    /** 企業IDで企業を取得し、存在しなければ404対象の例外を投げる。 */
+    /**
+     * 企業IDで企業を取得し、存在しない場合は 404 用例外を送出する。
+     */
     private fun findCompanyById(id: Long): Company {
         return companyRepository.findById(id)
             .orElseThrow {
@@ -106,7 +129,20 @@ class ApplicationService(
             }
     }
 
-    /** 応募全体のステータスが変更された場合のみ履歴を自動保存する。 */
+    /**
+     * SecurityContext に格納された認証情報から現在ユーザーを取得する。
+     */
+    private fun findCurrentUser(): User {
+        val email = SecurityContextHolder.getContext().authentication?.name
+            ?: throw IllegalStateException("現在の認証ユーザー情報を取得できません。")
+
+        return userRepository.findByEmail(email)
+            ?: throw NoSuchElementException("メールアドレス $email に該当するユーザーが見つかりません。")
+    }
+
+    /**
+     * 応募ステータスが実際に変化した場合のみ変更履歴を保存する。
+     */
     private fun saveStatusHistoryIfChanged(
         application: Application,
         previousStatus: ApplicationStatus,

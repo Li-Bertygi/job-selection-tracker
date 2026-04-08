@@ -1,6 +1,5 @@
 package com.hyunwoo.jobselectiontracker.application.history.controller
 
-import com.fasterxml.jackson.databind.ObjectMapper
 import com.hyunwoo.jobselectiontracker.application.entity.Application
 import com.hyunwoo.jobselectiontracker.application.entity.ApplicationStatus
 import com.hyunwoo.jobselectiontracker.application.history.entity.ApplicationStatusHistory
@@ -8,6 +7,8 @@ import com.hyunwoo.jobselectiontracker.application.history.repository.Applicatio
 import com.hyunwoo.jobselectiontracker.application.repository.ApplicationRepository
 import com.hyunwoo.jobselectiontracker.company.entity.Company
 import com.hyunwoo.jobselectiontracker.company.repository.CompanyRepository
+import com.hyunwoo.jobselectiontracker.user.entity.User
+import com.hyunwoo.jobselectiontracker.user.repository.UserRepository
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
@@ -24,14 +25,11 @@ import java.time.LocalDateTime
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
-@WithMockUser
+@WithMockUser(username = "test@example.com")
 class ApplicationStatusHistoryControllerTest {
 
     @Autowired
     private lateinit var mockMvc: MockMvc
-
-    @Autowired
-    private lateinit var objectMapper: ObjectMapper
 
     @Autowired
     private lateinit var companyRepository: CompanyRepository
@@ -42,11 +40,15 @@ class ApplicationStatusHistoryControllerTest {
     @Autowired
     private lateinit var applicationStatusHistoryRepository: ApplicationStatusHistoryRepository
 
+    @Autowired
+    private lateinit var userRepository: UserRepository
+
     @BeforeEach
     fun setUp() {
         applicationStatusHistoryRepository.deleteAll()
         applicationRepository.deleteAll()
         companyRepository.deleteAll()
+        userRepository.deleteAll()
     }
 
     @Test
@@ -83,18 +85,10 @@ class ApplicationStatusHistoryControllerTest {
     }
 
     private fun createApplication(status: ApplicationStatus): Application {
-        val company = companyRepository.save(
-            Company(
-                name = "OpenAI",
-                industry = "AI",
-                websiteUrl = "https://openai.com",
-                memo = "テスト企業"
-            )
-        )
-
         return applicationRepository.save(
             Application(
-                company = company,
+                user = createUser(),
+                company = createCompany(),
                 jobTitle = "Backend Engineer",
                 applicationRoute = "Wantedly",
                 status = status,
@@ -102,5 +96,27 @@ class ApplicationStatusHistoryControllerTest {
                 isArchived = false
             )
         )
+    }
+
+    private fun createCompany(): Company {
+        return companyRepository.save(
+            Company(
+                name = "OpenAI",
+                industry = "AI",
+                websiteUrl = "https://openai.com",
+                memo = "企業メモ"
+            )
+        )
+    }
+
+    private fun createUser(): User {
+        return userRepository.findByEmail("test@example.com")
+            ?: userRepository.save(
+                User(
+                    email = "test@example.com",
+                    password = "encoded-password",
+                    name = "テストユーザー"
+                )
+            )
     }
 }

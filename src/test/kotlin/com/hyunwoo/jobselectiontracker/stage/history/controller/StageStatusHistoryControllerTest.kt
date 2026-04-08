@@ -11,6 +11,9 @@ import com.hyunwoo.jobselectiontracker.stage.entity.StageType
 import com.hyunwoo.jobselectiontracker.stage.history.entity.StageStatusHistory
 import com.hyunwoo.jobselectiontracker.stage.history.repository.StageStatusHistoryRepository
 import com.hyunwoo.jobselectiontracker.stage.repository.StageRepository
+import com.hyunwoo.jobselectiontracker.user.entity.User
+import com.hyunwoo.jobselectiontracker.user.repository.UserRepository
+import java.time.LocalDateTime
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
@@ -22,12 +25,11 @@ import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
-import java.time.LocalDateTime
 
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
-@WithMockUser
+@WithMockUser(username = "test@example.com")
 class StageStatusHistoryControllerTest {
 
     @Autowired
@@ -45,12 +47,16 @@ class StageStatusHistoryControllerTest {
     @Autowired
     private lateinit var stageStatusHistoryRepository: StageStatusHistoryRepository
 
+    @Autowired
+    private lateinit var userRepository: UserRepository
+
     @BeforeEach
     fun setUp() {
         stageStatusHistoryRepository.deleteAll()
         stageRepository.deleteAll()
         applicationRepository.deleteAll()
         companyRepository.deleteAll()
+        userRepository.deleteAll()
     }
 
     @Test
@@ -92,12 +98,13 @@ class StageStatusHistoryControllerTest {
                 name = "OpenAI",
                 industry = "AI",
                 websiteUrl = "https://openai.com",
-                memo = "企業メモ"
+                memo = "志望度高め"
             )
         )
 
         val application = applicationRepository.save(
             Application(
+                user = createUser(),
                 company = company,
                 jobTitle = "Backend Engineer",
                 applicationRoute = "Wantedly",
@@ -116,5 +123,16 @@ class StageStatusHistoryControllerTest {
                 status = status
             )
         )
+    }
+
+    private fun createUser(): User {
+        return userRepository.findByEmail("test@example.com")
+            ?: userRepository.save(
+                User(
+                    email = "test@example.com",
+                    password = "encoded-password",
+                    name = "テストユーザー"
+                )
+            )
     }
 }

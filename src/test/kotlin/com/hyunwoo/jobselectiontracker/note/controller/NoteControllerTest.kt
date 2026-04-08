@@ -9,6 +9,8 @@ import com.hyunwoo.jobselectiontracker.company.repository.CompanyRepository
 import com.hyunwoo.jobselectiontracker.note.repository.NoteRepository
 import com.hyunwoo.jobselectiontracker.schedule.repository.ScheduleRepository
 import com.hyunwoo.jobselectiontracker.stage.repository.StageRepository
+import com.hyunwoo.jobselectiontracker.user.entity.User
+import com.hyunwoo.jobselectiontracker.user.repository.UserRepository
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
@@ -26,7 +28,7 @@ import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
-@WithMockUser
+@WithMockUser(username = "test@example.com")
 class NoteControllerTest {
 
     @Autowired
@@ -50,6 +52,9 @@ class NoteControllerTest {
     @Autowired
     private lateinit var noteRepository: NoteRepository
 
+    @Autowired
+    private lateinit var userRepository: UserRepository
+
     @BeforeEach
     fun setUp() {
         scheduleRepository.deleteAll()
@@ -57,6 +62,7 @@ class NoteControllerTest {
         noteRepository.deleteAll()
         applicationRepository.deleteAll()
         companyRepository.deleteAll()
+        userRepository.deleteAll()
     }
 
     @Test
@@ -112,18 +118,10 @@ class NoteControllerTest {
     }
 
     private fun createApplication(): Application {
-        val company = companyRepository.save(
-            Company(
-                name = "OpenAI",
-                industry = "AI",
-                websiteUrl = "https://openai.com",
-                memo = "テスト企業"
-            )
-        )
-
         return applicationRepository.save(
             Application(
-                company = company,
+                user = createUser(),
+                company = createCompany(),
                 jobTitle = "Backend Engineer",
                 applicationRoute = "Wantedly",
                 status = ApplicationStatus.APPLICATION,
@@ -131,5 +129,27 @@ class NoteControllerTest {
                 isArchived = false
             )
         )
+    }
+
+    private fun createCompany(): Company {
+        return companyRepository.save(
+            Company(
+                name = "OpenAI",
+                industry = "AI",
+                websiteUrl = "https://openai.com",
+                memo = "企業メモ"
+            )
+        )
+    }
+
+    private fun createUser(): User {
+        return userRepository.findByEmail("test@example.com")
+            ?: userRepository.save(
+                User(
+                    email = "test@example.com",
+                    password = "encoded-password",
+                    name = "テストユーザー"
+                )
+            )
     }
 }

@@ -7,6 +7,9 @@ import com.hyunwoo.jobselectiontracker.application.history.repository.Applicatio
 import com.hyunwoo.jobselectiontracker.application.repository.ApplicationRepository
 import com.hyunwoo.jobselectiontracker.company.entity.Company
 import com.hyunwoo.jobselectiontracker.company.repository.CompanyRepository
+import com.hyunwoo.jobselectiontracker.user.entity.User
+import com.hyunwoo.jobselectiontracker.user.repository.UserRepository
+import kotlin.test.assertEquals
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
@@ -25,7 +28,7 @@ import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
-@WithMockUser
+@WithMockUser(username = "test@example.com")
 class ApplicationControllerTest {
 
     @Autowired
@@ -43,24 +46,21 @@ class ApplicationControllerTest {
     @Autowired
     private lateinit var companyRepository: CompanyRepository
 
+    @Autowired
+    private lateinit var userRepository: UserRepository
+
     @BeforeEach
     fun setUp() {
         applicationStatusHistoryRepository.deleteAll()
         applicationRepository.deleteAll()
         companyRepository.deleteAll()
+        userRepository.deleteAll()
+        createUser()
     }
 
     @Test
     fun `POST applications creates application`() {
-        val company = companyRepository.save(
-            Company(
-                name = "OpenAI",
-                industry = "AI",
-                websiteUrl = "https://openai.com",
-                memo = "第一志望"
-            )
-        )
-
+        val company = createCompany()
         val request = mapOf(
             "companyId" to company.id,
             "jobTitle" to "Backend Engineer",
@@ -83,15 +83,7 @@ class ApplicationControllerTest {
 
     @Test
     fun `POST applications with blank job title returns bad request`() {
-        val company = companyRepository.save(
-            Company(
-                name = "OpenAI",
-                industry = "AI",
-                websiteUrl = "https://openai.com",
-                memo = "第一志望"
-            )
-        )
-
+        val company = createCompany()
         val request = mapOf(
             "companyId" to company.id,
             "jobTitle" to "",
@@ -129,24 +121,16 @@ class ApplicationControllerTest {
             .andExpect(jsonPath("$.status").value("INTERVIEW"))
 
         val histories = applicationStatusHistoryRepository.findAllByApplicationIdOrderByChangedAtDesc(application.id!!)
-        kotlin.test.assertEquals(1, histories.size)
-        kotlin.test.assertEquals(ApplicationStatus.APPLICATION, histories[0].fromStatus)
-        kotlin.test.assertEquals(ApplicationStatus.INTERVIEW, histories[0].toStatus)
+        assertEquals(1, histories.size)
+        assertEquals(ApplicationStatus.APPLICATION, histories[0].fromStatus)
+        assertEquals(ApplicationStatus.INTERVIEW, histories[0].toStatus)
     }
 
     private fun createApplication(status: ApplicationStatus): Application {
-        val company = companyRepository.save(
-            Company(
-                name = "OpenAI",
-                industry = "AI",
-                websiteUrl = "https://openai.com",
-                memo = "テスト企業"
-            )
-        )
-
         return applicationRepository.save(
             Application(
-                company = company,
+                user = createUser(),
+                company = createCompany(),
                 jobTitle = "Backend Engineer",
                 applicationRoute = "Wantedly",
                 status = status,
@@ -154,5 +138,27 @@ class ApplicationControllerTest {
                 isArchived = false
             )
         )
+    }
+
+    private fun createCompany(): Company {
+        return companyRepository.save(
+            Company(
+                name = "OpenAI",
+                industry = "AI",
+                websiteUrl = "https://openai.com",
+                memo = "志望度高め"
+            )
+        )
+    }
+
+    private fun createUser(): User {
+        return userRepository.findByEmail("test@example.com")
+            ?: userRepository.save(
+                User(
+                    email = "test@example.com",
+                    password = "encoded-password",
+                    name = "テストユーザー"
+                )
+            )
     }
 }

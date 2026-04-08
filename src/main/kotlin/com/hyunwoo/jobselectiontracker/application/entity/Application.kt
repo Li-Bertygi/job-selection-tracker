@@ -1,6 +1,7 @@
 package com.hyunwoo.jobselectiontracker.application.entity
 
 import com.hyunwoo.jobselectiontracker.company.entity.Company
+import com.hyunwoo.jobselectiontracker.user.entity.User
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.EnumType
@@ -18,32 +19,37 @@ import java.time.LocalDate
 import java.time.LocalDateTime
 
 /**
- * 応募情報の中心となるJPAエンティティ。
- * 企業、応募職種、応募経路、現在の進捗状態などをまとめて管理する。
+ * 応募情報の中心データを表す JPA エンティティ。
+ * 所有者ユーザー、応募先企業、進行状況、日付関連情報をまとめて管理する。
  */
 @Entity
 @Table(name = "applications")
 class Application(
 
-    /** 応募情報を一意に識別する主キー。 */
+    /** 応募情報ID。 */
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     val id: Long? = null,
 
-    /** 応募先企業。複数の応募情報が1つの企業に紐づく。 */
+    /** この応募情報の所有者となるユーザー。 */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", nullable = false)
+    var user: User,
+
+    /** 応募先企業。 */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "company_id", nullable = false)
     var company: Company,
 
-    /** 応募した職種名。 */
+    /** 応募職種。 */
     @Column(name = "job_title", nullable = false, length = 255)
     var jobTitle: String,
 
-    /** 応募経路。例: 自社サイト、求人媒体、エージェント。 */
+    /** 応募経路。 */
     @Column(name = "application_route", length = 100)
     var applicationRoute: String? = null,
 
-    /** 応募全体の進捗状態。 */
+    /** 応募全体の現在ステータス。 */
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 50)
     var status: ApplicationStatus = ApplicationStatus.NOT_STARTED,
@@ -56,28 +62,28 @@ class Application(
     @Column(name = "result_date")
     var resultDate: LocalDate? = null,
 
-    /** オファーへの回答期限。 */
+    /** オファー承諾期限。 */
     @Column(name = "offer_deadline")
     var offerDeadline: LocalDate? = null,
 
-    /** 応募の優先度。数値が高いほど優先度が高い想定。 */
+    /** 応募優先順位。 */
     @Column(nullable = false)
     var priority: Int = 0,
 
-    /** 一覧から除外したい応募を保管するためのフラグ。 */
+    /** 一覧から除外するためのアーカイブフラグ。 */
     @Column(name = "is_archived", nullable = false)
     var isArchived: Boolean = false,
 
-    /** レコードの作成日時。初回保存時に設定される。 */
+    /** 作成日時。 */
     @Column(name = "created_at", nullable = false, updatable = false)
     var createdAt: LocalDateTime? = null,
 
-    /** レコードの更新日時。更新のたびに変更される。 */
+    /** 更新日時。 */
     @Column(name = "updated_at", nullable = false)
     var updatedAt: LocalDateTime? = null
 ) {
 
-    /** 保存前に作成日時と更新日時を現在時刻で初期化する。 */
+    /** 初回保存時に作成日時と更新日時を同じ現在時刻で設定する。 */
     @PrePersist
     fun prePersist() {
         val now = LocalDateTime.now()
@@ -85,7 +91,7 @@ class Application(
         updatedAt = now
     }
 
-    /** 更新前に更新日時のみ最新時刻へ変更する。 */
+    /** 更新時に更新日時のみを現在時刻で更新する。 */
     @PreUpdate
     fun preUpdate() {
         updatedAt = LocalDateTime.now()

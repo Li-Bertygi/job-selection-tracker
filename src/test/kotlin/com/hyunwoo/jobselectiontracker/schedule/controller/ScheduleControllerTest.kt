@@ -6,11 +6,12 @@ import com.hyunwoo.jobselectiontracker.application.entity.ApplicationStatus
 import com.hyunwoo.jobselectiontracker.application.repository.ApplicationRepository
 import com.hyunwoo.jobselectiontracker.company.entity.Company
 import com.hyunwoo.jobselectiontracker.company.repository.CompanyRepository
+import com.hyunwoo.jobselectiontracker.schedule.entity.Schedule
+import com.hyunwoo.jobselectiontracker.schedule.entity.ScheduleType
 import com.hyunwoo.jobselectiontracker.schedule.repository.ScheduleRepository
-import com.hyunwoo.jobselectiontracker.stage.entity.Stage
-import com.hyunwoo.jobselectiontracker.stage.entity.StageStatus
-import com.hyunwoo.jobselectiontracker.stage.entity.StageType
 import com.hyunwoo.jobselectiontracker.stage.repository.StageRepository
+import com.hyunwoo.jobselectiontracker.user.entity.User
+import com.hyunwoo.jobselectiontracker.user.repository.UserRepository
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
@@ -28,7 +29,7 @@ import java.time.LocalDateTime
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
-@WithMockUser
+@WithMockUser(username = "test@example.com")
 class ScheduleControllerTest {
 
     @Autowired
@@ -49,12 +50,16 @@ class ScheduleControllerTest {
     @Autowired
     private lateinit var scheduleRepository: ScheduleRepository
 
+    @Autowired
+    private lateinit var userRepository: UserRepository
+
     @BeforeEach
     fun setUp() {
         scheduleRepository.deleteAll()
         stageRepository.deleteAll()
         applicationRepository.deleteAll()
         companyRepository.deleteAll()
+        userRepository.deleteAll()
     }
 
     @Test
@@ -83,10 +88,10 @@ class ScheduleControllerTest {
     fun `POST schedules with duplicate key returns bad request`() {
         val application = createApplication()
         scheduleRepository.save(
-            com.hyunwoo.jobselectiontracker.schedule.entity.Schedule(
+            Schedule(
                 application = application,
                 stage = null,
-                scheduleType = com.hyunwoo.jobselectiontracker.schedule.entity.ScheduleType.RESULT_ANNOUNCEMENT,
+                scheduleType = ScheduleType.RESULT_ANNOUNCEMENT,
                 title = "結果連絡予定",
                 description = "メールで通知予定",
                 startAt = LocalDateTime.of(2026, 4, 12, 18, 0),
@@ -137,12 +142,13 @@ class ScheduleControllerTest {
                 name = "OpenAI",
                 industry = "AI",
                 websiteUrl = "https://openai.com",
-                memo = "テスト企業"
+                memo = "志望度高め"
             )
         )
 
         return applicationRepository.save(
             Application(
+                user = createUser(),
                 company = company,
                 jobTitle = "Backend Engineer",
                 applicationRoute = "Wantedly",
@@ -151,5 +157,16 @@ class ScheduleControllerTest {
                 isArchived = false
             )
         )
+    }
+
+    private fun createUser(): User {
+        return userRepository.findByEmail("test@example.com")
+            ?: userRepository.save(
+                User(
+                    email = "test@example.com",
+                    password = "encoded-password",
+                    name = "テストユーザー"
+                )
+            )
     }
 }
