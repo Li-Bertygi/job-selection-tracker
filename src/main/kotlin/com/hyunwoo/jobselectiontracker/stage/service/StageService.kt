@@ -1,7 +1,9 @@
 package com.hyunwoo.jobselectiontracker.stage.service
 
 import com.hyunwoo.jobselectiontracker.application.entity.Application
-import com.hyunwoo.jobselectiontracker.application.repository.ApplicationRepository
+import com.hyunwoo.jobselectiontracker.common.exception.InvalidRequestException
+import com.hyunwoo.jobselectiontracker.common.security.CurrentUserProvider
+import com.hyunwoo.jobselectiontracker.common.security.OwnedResourceFinder
 import com.hyunwoo.jobselectiontracker.stage.dto.CreateStageRequest
 import com.hyunwoo.jobselectiontracker.stage.dto.StageResponse
 import com.hyunwoo.jobselectiontracker.stage.dto.UpdateStageRequest
@@ -11,22 +13,15 @@ import com.hyunwoo.jobselectiontracker.stage.history.entity.StageStatusHistory
 import com.hyunwoo.jobselectiontracker.stage.history.repository.StageStatusHistoryRepository
 import com.hyunwoo.jobselectiontracker.stage.repository.StageRepository
 import com.hyunwoo.jobselectiontracker.user.entity.User
-import com.hyunwoo.jobselectiontracker.user.repository.UserRepository
-import org.springframework.security.core.context.SecurityContextHolder
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
-import java.util.NoSuchElementException
 
-/**
- * 選考ステージの作成、取得、更新、削除を担当するサービス。
- * 参照対象は現在ログイン中ユーザーの応募情報配下に限定する。
- */
 @Service
 @Transactional(readOnly = true)
 class StageService(
     private val stageRepository: StageRepository,
-    private val applicationRepository: ApplicationRepository,
-    private val userRepository: UserRepository,
+    private val currentUserProvider: CurrentUserProvider,
+    private val ownedResourceFinder: OwnedResourceFinder,
     private val stageStatusHistoryRepository: StageStatusHistoryRepository
 ) {
 
@@ -70,7 +65,7 @@ class StageService(
         request.stageOrder?.let {
             if (it != stage.stageOrder) {
                 validateStageOrder(
-                    stage.application.id ?: throw IllegalStateException("応募情報IDが存在しません。"),
+                    stage.application.id ?: throw IllegalStateException("Application id is missing."),
                     it
                 )
                 stage.stageOrder = it
@@ -78,7 +73,10 @@ class StageService(
         }
         request.stageType?.let { stage.stageType = it }
         request.stageName?.let { stage.stageName = it.trim() }
-        request.status?.let { stage.status = it }
+        request.status?.let {
+            validateStatusTransition(stage.status, it)
+            stage.status = it
+        }
         request.scheduledAt?.let { stage.scheduledAt = it }
         request.completedAt?.let { stage.completedAt = it }
         request.resultDate?.let { stage.resultDate = it }
@@ -97,26 +95,20 @@ class StageService(
     }
 
     private fun findApplicationByIdAndUserId(id: Long, userId: Long): Application {
-        return applicationRepository.findByIdAndUserId(id, userId)
-            ?: throw NoSuchElementException("応募情報ID $id に該当する応募情報が見つかりません。")
+        return ownedResourceFinder.findApplication(id, userId)
     }
 
     private fun findStageByIdAndUserId(id: Long, userId: Long): Stage {
-        return stageRepository.findByIdAndApplicationUserId(id, userId)
-            ?: throw NoSuchElementException("ステージID $id に該当するステージが見つかりません。")
+        return ownedResourceFinder.findStage(id, userId)
     }
 
     private fun findCurrentUser(): User {
-        val email = SecurityContextHolder.getContext().authentication?.name
-            ?: throw IllegalStateException("現在の認証ユーザー情報を取得できません。")
-
-        return userRepository.findByEmail(email)
-            ?: throw NoSuchElementException("メールアドレス $email に該当するユーザーが見つかりません。")
+        return currentUserProvider.getCurrentUser()
     }
 
     private fun validateStageOrder(applicationId: Long, stageOrder: Int) {
         if (stageRepository.existsByApplicationIdAndStageOrder(applicationId, stageOrder)) {
-            throw IllegalArgumentException("応募情報ID $applicationId ではステージ順序 $stageOrder がすでに使用されています。")
+            throw InvalidRequestException("Stage order $stageOrder is already in use for application $applicationId.")
         }
     }
 
@@ -136,5 +128,38 @@ class StageService(
                 toStatus = currentStatus
             )
         )
+    }
+
+    private fun validateStatusTransition(
+        currentStatus: StageStatus,
+        nextStatus: StageStatus
+    ) {
+        if (currentStatus == nextStatus) {
+            return
+        }
+
+        val allowedNextStatuses = when (currentStatus) {
+            StageStatus.PENDING -> setOf(
+                StageStatus.SCHEDULED,
+                StageStatus.COMPLETED,
+                StageStatus.FAILED
+            )
+            StageStatus.SCHEDULED -> setOf(
+                StageStatus.COMPLETED,
+                StageStatus.FAILED
+            )
+            StageStatus.COMPLETED -> setOf(
+                StageStatus.PASSED,
+                StageStatus.FAILED
+            )
+            StageStatus.PASSED,
+            StageStatus.FAILED -> emptySet()
+        }
+
+        if (nextStatus !in allowedNextStatuses) {
+            throw InvalidRequestException(
+                "Cannot change stage status from $currentStatus to $nextStatus."
+            )
+        }
     }
 }

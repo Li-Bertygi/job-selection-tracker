@@ -151,6 +151,21 @@ class ApplicationControllerTest {
             .andExpect(jsonPath("$.status").value(404))
     }
 
+    @Test
+    fun `PATCH applications with invalid status transition returns bad request`() {
+        val application = createApplication(user = createUser(), status = ApplicationStatus.OFFERED)
+        val request = mapOf("status" to "INTERVIEW")
+
+        mockMvc.perform(
+            patch("/applications/${application.id}")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request))
+        )
+            .andExpect(status().isBadRequest)
+            .andExpect(jsonPath("$.status").value(400))
+            .andExpect(jsonPath("$.code").value("INVALID_REQUEST"))
+    }
+
     private fun createApplication(user: User, status: ApplicationStatus): Application {
         return applicationRepository.save(
             Application(

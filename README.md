@@ -1,97 +1,218 @@
 # Job Application Tracker
 
-就職活動における応募情報・選考フロー・日程・メモを一元管理するためのアプリケーションです。
+就職活動における応募情報、選考ステージ、日程、メモを一元管理するためのバックエンド API です。  
+Kotlin / Spring Boot を用いて、認証、ユーザーごとのデータ分離、ステータス履歴管理、データ整合性の担保を重視して実装しています。
 
 ---
 
-## 1. サービス概要
+## 概要
 
-### 1-1. サービス一行定義
-就職活動における応募状況・選考進捗・スケジュールを一元管理できるアプリ
+本プロジェクトは、就職活動で散在しやすい以下の情報をまとめて管理することを目的としています。
 
-### 1-2. 解決したい課題
-就職活動では、企業ごとに応募状況や選考フロー、面接日程が分散しやすく、
-以下のような問題が発生します。
+- 応募先企業
+- 応募情報
+- 選考ステージ
+- 面接や締切などの日程
+- 志望動機や振り返りメモ
+- 応募ステータスおよび選考ステータスの変更履歴
 
-- 応募状況の把握が難しい
-- 面接日程や締切の管理が煩雑
-- 選考の進捗が整理できない
-- 志望動機や面接内容の記録が分散する
-
-本サービスではこれらの情報を一元化し、効率的な就職活動を支援します。
+単純な CRUD にとどまらず、JWT 認証、所有者チェック、履歴自動生成、Flyway によるスキーマ管理、DB 制約による重複防止を含めて構成しています。
 
 ---
 
-### 1-3. MVP範囲
+## 技術スタック
 
-- 応募情報の登録・編集・削除（CRUD）
-- 選考ステージの管理
-- 面接・締切などのスケジュール管理
-- メモ機能（志望動機・面接記録など）
-- ステータス管理（応募〜内定まで）
-
----
-
-## 2. 使用技術
-
-- フロントエンド：React / Next.js
-- バックエンド：Kotlin / Spring Boot
-- 認証・認可：Spring Security / JWT
-- データベース：PostgreSQL
-- ORM：JPA (Hibernate)
-- インフラ：AWS
-- コンテナ：Docker
-- キャッシュ：Redis（今後の拡張を想定）
+- Kotlin 1.9
+- Spring Boot 3
+- Spring Web
+- Spring Security
+- Spring Data JPA
+- PostgreSQL
+- H2 Database
+- Flyway
+- JJWT
+- Gradle Kotlin DSL
 
 ---
 
-## 2-1. 技術選定理由
+## 現在の実装範囲
 
-本プロジェクトでは、単なる実装ではなく「実務で通用する設計・構成」を意識し、各技術を選定しています。
+### 認証
 
-### フロントエンド：React / Next.js
-ユーザーインターフェースの構築において、コンポーネント指向による再利用性と保守性を重視しました。  
-また、Next.jsを採用することで、ルーティングやデータ取得を効率的に行い、実務に近いフロントエンド構成を意識しています。
+- ユーザー登録
+- ログイン
+- 現在のログインユーザー取得
+- JWT Bearer 認証
 
-### バックエンド：Kotlin / Spring Boot
-企業での採用実績が多く、堅牢なAPI設計が可能なSpring Bootを採用しました。  
-Kotlinを使用することで、Javaよりも簡潔かつ安全にコードを記述でき、開発効率と可読性の向上を図っています。
+### 企業管理
 
-### 認証・認可：Spring Security / JWT
-実務で一般的に使用される認証基盤としてSpring Securityを採用しました。  
-JWTを利用することで、ステートレスな認証を実現し、スケーラビリティを考慮した設計としています。
+- 企業の作成
+- 企業一覧取得
+- 企業詳細取得
+- 企業更新
+- 企業削除
 
-### データベース：PostgreSQL
-複雑なリレーションやトランザクション処理に強く、拡張性の高いRDBであるため採用しました。  
-本システムのように複数テーブル間の関係が重要な場合に適していると判断しています。
+### 応募管理
 
-### ORM：JPA (Hibernate)
-オブジェクト指向でデータベース操作を行うことで、開発効率と保守性の向上を目的として採用しました。  
-また、エンティティ間のリレーションを明確に表現できる点も重視しています。
+- 応募情報の作成
+- 応募一覧取得
+- 応募詳細取得
+- 応募更新
+- 応募削除
+- 応募ステータス履歴取得
 
-### インフラ：AWS
-実務での利用が多く、スケーラブルな構成を構築できるため採用しました。  
-将来的な本番運用を見据えたインフラ設計を意識しています。
+### 選考ステージ管理
 
-### コンテナ：Docker
-開発環境と本番環境の差異をなくし、再現性の高い環境構築を実現するため採用しました。  
-チーム開発やデプロイの効率化にも寄与します。
+- 応募配下のステージ作成
+- 応募配下のステージ一覧取得
+- ステージ更新
+- ステージ削除
+- ステージステータス履歴取得
 
-### キャッシュ：Redis（今後の拡張を想定）
-現時点では必須ではありませんが、  
-今後のパフォーマンス改善（例：ダッシュボード集計・頻繁なクエリ結果のキャッシュ）を想定し、導入を検討しています。
+### 日程管理
+
+- 応募配下の日程作成
+- 応募配下の日程一覧取得
+- 日程更新
+- 日程削除
+
+### メモ管理
+
+- 応募配下のメモ作成
+- 応募配下のメモ一覧取得
+- メモ更新
+- メモ削除
 
 ---
 
-## 2-2. 実行方法
+## 設計上のポイント
 
-### 前提条件
+### 1. ユーザー単位のデータ分離
+
+すべての主要リソースはログイン中ユーザーの所有データとして扱います。  
+他ユーザーの企業、応募、ステージ、日程、メモにはアクセスできません。
+
+### 2. 履歴の自動保存
+
+- `applications.status` が変化した場合、`application_status_histories` を自動生成
+- `stages.status` が変化した場合、`stage_status_histories` を自動生成
+
+### 3. 状態遷移の制御
+
+応募とステージのステータスは任意に変更できるわけではなく、サービス層で許可された遷移のみを受け付けます。
+
+応募ステータスの例:
+
+- `NOT_STARTED -> APPLICATION`
+- `APPLICATION -> INTERVIEW`
+- `INTERVIEW -> OFFERED`
+- `INTERVIEW -> REJECTED`
+- `OFFERED` と `REJECTED` は終端状態
+
+ステージステータスの例:
+
+- `PENDING -> SCHEDULED`
+- `SCHEDULED -> COMPLETED`
+- `COMPLETED -> PASSED`
+- `COMPLETED -> FAILED`
+- `PASSED` と `FAILED` は終端状態
+
+### 4. DB 制約による整合性担保
+
+Flyway 管理のスキーマ上で、以下の制約を DB レベルでも保証しています。
+
+- `applications.priority` は `0..10`
+- `stages` は `(application_id, stage_order)` を一意に制約
+- `schedules.end_at >= start_at`
+- `schedules` は応募単位またはステージ単位で重複登録を防止
+
+### 5. 設定分離
+
+- `application.yaml`: 共通設定
+- `application-local.yaml`: ローカル開発用設定
+- `application-prod.yaml`: 本番想定設定
+- `application-test.yaml`: テスト用設定
+
+---
+
+## データモデル
+
+主なテーブルは以下の通りです。
+
+- `users`
+- `companies`
+- `applications`
+- `stages`
+- `schedules`
+- `notes`
+- `application_status_histories`
+- `stage_status_histories`
+
+ERD:
+
+![ERD](./DB.png)
+
+---
+
+## API 一覧
+
+### Auth
+
+- `POST /auth/signup`
+- `POST /auth/login`
+- `GET /auth/me`
+
+### Companies
+
+- `POST /companies`
+- `GET /companies`
+- `GET /companies/{id}`
+- `PATCH /companies/{id}`
+- `DELETE /companies/{id}`
+
+### Applications
+
+- `POST /applications`
+- `GET /applications`
+- `GET /applications/{id}`
+- `PATCH /applications/{id}`
+- `DELETE /applications/{id}`
+- `GET /applications/{id}/status-histories`
+
+### Stages
+
+- `POST /applications/{id}/stages`
+- `GET /applications/{id}/stages`
+- `PATCH /stages/{id}`
+- `DELETE /stages/{id}`
+- `GET /stages/{id}/status-histories`
+
+### Schedules
+
+- `POST /applications/{id}/schedules`
+- `GET /applications/{id}/schedules`
+- `PATCH /schedules/{id}`
+- `DELETE /schedules/{id}`
+
+### Notes
+
+- `POST /applications/{id}/notes`
+- `GET /applications/{id}/notes`
+- `PATCH /notes/{id}`
+- `DELETE /notes/{id}`
+
+---
+
+## ローカル実行方法
+
+### 前提
+
 - Java 17
-- Docker
-- Docker上で起動するPostgreSQL
+- PostgreSQL
 
-### PostgreSQL コンテナ起動例
-以下はローカル検証時に使用した例です。
+### 1. PostgreSQL を起動
+
+例:
 
 ```bash
 docker run --name postgres-db ^
@@ -102,731 +223,131 @@ docker run --name postgres-db ^
   -d postgres:15
 ```
 
-すでにコンテナを作成済みの場合は、以下で起動できます。
+すでにコンテナを作成済みの場合:
 
 ```bash
 docker start postgres-db
 ```
 
-### アプリケーション設定
-`src/main/resources/application.yaml` では以下の接続先と JWT 設定を想定しています。
+### 2. 環境変数を設定
 
-```yaml
-spring:
-  datasource:
-    url: jdbc:postgresql://localhost:5432/jobtracker
-    username: postgres
-    password: 1234
+PowerShell の例:
 
-jwt:
-  secret: your-secret-key
-  access-token-expiration-seconds: 3600
-  token-type: Bearer
+```powershell
+$env:DB_URL="jdbc:postgresql://localhost:5432/jobtracker"
+$env:DB_USERNAME="postgres"
+$env:DB_PASSWORD="1234"
+$env:JWT_SECRET="change-this-secret-key-for-local-environment-only"
 ```
 
-### サーバー起動
+未指定の場合、`application-local.yaml` のデフォルト値が使用されます。  
+ただし、実運用を想定する場合は必ず明示的に設定してください。
+
+### 3. アプリケーションを起動
 
 ```bash
 ./gradlew bootRun
 ```
 
-起動後は `http://localhost:8080` でAPIにアクセスできます。
+デフォルトでは `local` プロファイルで起動します。
 
-### テスト実行
+---
 
-テストは `test` プロファイルとH2インメモリDBを使用して実行されます。
+## マイグレーション
+
+スキーマは Flyway で管理しています。
+
+- `src/main/resources/db/migration/V1__init.sql`
+- `src/main/resources/db/migration/V2__integrity_constraints.sql`
+
+Hibernate はスキーマ自動更新を行わず、`validate` のみ実行します。  
+テーブル定義や制約変更は必ず migration を追加して管理します。
+
+---
+
+## テスト
+
+テストは H2 インメモリ DB と `test` プロファイルを使用して実行します。
 
 ```bash
 ./gradlew test
 ```
 
-### テーブル確認
+現在は主に以下を検証しています。
 
-```bash
-docker exec -it postgres-db psql -U postgres -d jobtracker
-```
+- 認証 API の基本動作
+- ユーザー所有データへのアクセス制御
+- バリデーションエラー
+- ステータス履歴の生成
+- ステータス遷移制御
+- 重複データの防止
 
-```sql
-\dt
-\d companies
-\d applications
-\d stages
-\d schedules
-\d notes
-\d application_status_histories
-\d stage_status_histories
-\d users
-```
+---
 
-### 動作確認例
+## 動作確認例
 
-#### ユーザー新規登録
+### ユーザー登録
 
 ```bash
 curl.exe --% -X POST http://localhost:8080/auth/signup -H "Content-Type: application/json" -d "{\"email\":\"test@example.com\",\"password\":\"password123\",\"name\":\"テストユーザー\"}"
 ```
 
-#### ログイン
+### ログイン
 
 ```bash
 curl.exe --% -X POST http://localhost:8080/auth/login -H "Content-Type: application/json" -d "{\"email\":\"test@example.com\",\"password\":\"password123\"}"
 ```
 
-#### 現在ログイン中のユーザー確認
+### 現在ユーザー取得
 
 ```bash
 curl.exe --% http://localhost:8080/auth/me -H "Authorization: Bearer <accessToken>"
 ```
 
-#### 企業登録
+### 企業作成
 
 ```bash
-curl.exe --% -X POST http://localhost:8080/companies -H "Authorization: Bearer <accessToken>" -H "Content-Type: application/json" -d "{\"name\":\"OpenAI\",\"industry\":\"AI\",\"websiteUrl\":\"https://openai.com\",\"memo\":\"志望度高め\"}"
+curl.exe --% -X POST http://localhost:8080/companies -H "Authorization: Bearer <accessToken>" -H "Content-Type: application/json" -d "{\"name\":\"OpenAI\",\"industry\":\"AI\",\"websiteUrl\":\"https://openai.com\",\"memo\":\"志望度が高い企業\"}"
 ```
 
-#### 企業一覧取得
-
-```bash
-curl.exe --% http://localhost:8080/companies -H "Authorization: Bearer <accessToken>"
-```
-
-#### 応募情報登録
+### 応募作成
 
 ```bash
 curl.exe --% -X POST http://localhost:8080/applications -H "Authorization: Bearer <accessToken>" -H "Content-Type: application/json" -d "{\"companyId\":1,\"jobTitle\":\"Backend Engineer\",\"applicationRoute\":\"Wantedly\",\"status\":\"APPLICATION\",\"appliedAt\":\"2026-04-05\",\"priority\":1,\"isArchived\":false}"
 ```
 
-#### 応募情報一覧取得
+### ステージ作成
 
 ```bash
-curl.exe --% http://localhost:8080/applications -H "Authorization: Bearer <accessToken>"
+curl.exe --% -X POST http://localhost:8080/applications/1/stages -H "Authorization: Bearer <accessToken>" -H "Content-Type: application/json" -d "{\"stageOrder\":1,\"stageType\":\"FIRST_INTERVIEW\",\"stageName\":\"一次面接\",\"status\":\"SCHEDULED\",\"scheduledAt\":\"2026-04-10T14:00:00\",\"memo\":\"オンライン面接\"}"
 ```
 
-#### 選考ステージ登録
-
-```bash
-curl.exe --% -X POST http://localhost:8080/applications/1/stages -H "Authorization: Bearer <accessToken>" -H "Content-Type: application/json" -d "{\"stageOrder\":1,\"stageType\":\"FIRST_INTERVIEW\",\"stageName\":\"一次面接(人事面接)\",\"status\":\"SCHEDULED\",\"scheduledAt\":\"2026-04-10T14:00:00\",\"memo\":\"オンライン面接\"}"
-```
-
-#### 選考ステージ一覧取得
-
-```bash
-curl.exe --% http://localhost:8080/applications/1/stages -H "Authorization: Bearer <accessToken>"
-```
-
-#### 応募全体のスケジュール登録
+### 日程作成
 
 ```bash
 curl.exe --% -X POST http://localhost:8080/applications/1/schedules -H "Authorization: Bearer <accessToken>" -H "Content-Type: application/json" -d "{\"scheduleType\":\"RESULT_ANNOUNCEMENT\",\"title\":\"結果連絡予定\",\"description\":\"メールで通知予定\",\"startAt\":\"2026-04-12T18:00:00\",\"isAllDay\":false}"
 ```
 
-#### ステージに紐づくスケジュール登録
+### メモ作成
 
 ```bash
-curl.exe --% -X POST http://localhost:8080/applications/1/schedules -H "Authorization: Bearer <accessToken>" -H "Content-Type: application/json" -d "{\"stageId\":3,\"scheduleType\":\"EVENT\",\"title\":\"一次面接実施\",\"description\":\"Zoom面接\",\"startAt\":\"2026-04-10T14:00:00\",\"endAt\":\"2026-04-10T15:00:00\",\"location\":\"Zoom\",\"isAllDay\":false}"
+curl.exe --% -X POST http://localhost:8080/applications/1/notes -H "Authorization: Bearer <accessToken>" -H "Content-Type: application/json" -d "{\"title\":\"面接準備\",\"noteType\":\"PREPARATION\",\"content\":\"自己紹介と志望動機を整理する。\"}"
 ```
 
-#### スケジュール一覧取得
+---
 
-```bash
-curl.exe --% http://localhost:8080/applications/1/schedules -H "Authorization: Bearer <accessToken>"
-```
+## 今後の改善候補
 
-#### メモ登録
-
-```bash
-curl.exe --% -X POST http://localhost:8080/applications/1/notes -H "Authorization: Bearer <accessToken>" -H "Content-Type: application/json" -d "{\"title\":\"一次面接の準備\",\"noteType\":\"PREPARATION\",\"content\":\"自己紹介と志望動機を整理しておく。\"}"
-```
-
-#### タイトル未入力メモ登録
-
-```bash
-curl.exe --% -X POST http://localhost:8080/applications/1/notes -H "Authorization: Bearer <accessToken>" -H "Content-Type: application/json" -d "{\"noteType\":\"REVIEW\",\"content\":\"面接後に振り返りを追加する。\"}"
-```
-
-#### メモ一覧取得
-
-```bash
-curl.exe --% http://localhost:8080/applications/1/notes -H "Authorization: Bearer <accessToken>"
-```
-
-#### 応募ステータス変更
-
-```bash
-curl.exe --% -X PATCH http://localhost:8080/applications/1 -H "Authorization: Bearer <accessToken>" -H "Content-Type: application/json" -d "{\"status\":\"INTERVIEW\"}"
-```
-
-```bash
-curl.exe --% -X PATCH http://localhost:8080/applications/1 -H "Authorization: Bearer <accessToken>" -H "Content-Type: application/json" -d "{\"status\":\"OFFERED\"}"
-```
-
-#### 応募ステータス履歴取得
-
-```bash
-curl.exe --% http://localhost:8080/applications/1/status-histories -H "Authorization: Bearer <accessToken>"
-```
-
-#### 選考ステージステータス変更
-
-```bash
-curl.exe --% -X PATCH http://localhost:8080/stages/3 -H "Authorization: Bearer <accessToken>" -H "Content-Type: application/json" -d "{\"status\":\"COMPLETED\"}"
-```
-
-```bash
-curl.exe --% -X PATCH http://localhost:8080/stages/3 -H "Authorization: Bearer <accessToken>" -H "Content-Type: application/json" -d "{\"status\":\"PASSED\"}"
-```
-
-#### 選考ステージステータス履歴取得
-
-```bash
-curl.exe --% http://localhost:8080/stages/3/status-histories -H "Authorization: Bearer <accessToken>"
-```
-
-#### 存在しないID確認
-
-```bash
-curl.exe --% http://localhost:8080/companies/9999 -H "Authorization: Bearer <accessToken>"
-curl.exe --% http://localhost:8080/applications/9999 -H "Authorization: Bearer <accessToken>"
-curl.exe --% -X PATCH http://localhost:8080/stages/9999 -H "Authorization: Bearer <accessToken>" -H "Content-Type: application/json" -d "{\"status\":\"COMPLETED\"}"
-curl.exe --% -X PATCH http://localhost:8080/notes/9999 -H "Authorization: Bearer <accessToken>" -H "Content-Type: application/json" -d "{\"content\":\"更新テスト\"}"
-curl.exe --% http://localhost:8080/applications/9999/status-histories -H "Authorization: Bearer <accessToken>"
-curl.exe --% http://localhost:8080/stages/9999/status-histories -H "Authorization: Bearer <accessToken>"
-curl.exe --% -X POST http://localhost:8080/auth/signup -H "Content-Type: application/json" -d "{\"email\":\"test@example.com\",\"password\":\"password123\",\"name\":\"重複ユーザー\"}"
-```
-
-### 補足
-- 現在の保護APIは JWT による Bearer 認証を前提としている
-- `POST /auth/signup`、`POST /auth/login`、`GET /auth/me` は実装済み
-- `POST /auth/refresh` は今後の実装対象
-- `companies` と `applications` は現在ログイン中のユーザー所有データのみ参照・更新できる
+- 一覧 API のフィルタ・ソート・ページング
+- ステータス遷移ルールのより詳細な業務化
+- Docker / docker-compose によるローカル統合実行
+- CI/CD 構築
+- フロントエンドの追加
+- AWS へのデプロイと IaC 対応
 
 ---
 
-## 3. ERD
+## 補足
 
-![ERD](./DB.png)
-
----
-
-## 4. データベース設計
-
-本システムでは、応募情報を中心に関連データを紐づける構造で設計しています。
-
----
-
-### 4-1. users
-
-ユーザーの認証情報および基本情報を管理するテーブル
-
-#### 主な管理項目
-- `email`
-- `password_hash`
-- `name`
-- `created_at`
-- `updated_at`
-
-#### 現在の実装方針
-- メールアドレスは一意制約で管理する
-- パスワードは平文ではなく `BCrypt` によるハッシュ値を保存する
-- 現在は `signup` / `login` / `me` に必要な最小項目のみを管理する
-
----
-
-### 4-2. companies
-
-応募先企業の基本情報を管理するテーブル
-
-#### 主な管理項目
-- `user_id`
-- `name`
-- `industry`
-- `website_url`
-- `memo`
-- `created_at`
-- `updated_at`
-
-#### 現在の実装方針
-- `companies` は共有マスタではなく、ユーザーごとの管理データとして扱う
-- 同じ企業名でも、ユーザーごとに別レコードとして保持できる
-- 一覧取得・詳細取得・更新・削除は現在ログイン中のユーザーが所有する会社データのみに限定する
-
----
-
-### 4-3. applications
-
-応募情報を管理する中心テーブル
-
-本システムの中心となるテーブルであり、
-すべての選考情報はこのテーブルを基準に管理されます。
-
-- `user_id` によって応募情報の所有者を明確にする
-- `company_id` は現在ログイン中のユーザーが所有する会社のみ指定可能
-- 応募職種・応募経路・現在のステータスを管理する
-
-#### ステータス例
-- `NOT_STARTED`
-- `APPLICATION`
-- `INFO_SESSION`
-- `DOCUMENT_SCREENING`
-- `TEST`
-- `CASUAL_MEETING`
-- `INTERVIEW`
-- `OFFERED`
-- `REJECTED`
-
----
-
-### 4-4. stages
-
-各応募に紐づく選考ステージを管理
-
-#### 設計意図
-企業ごとに異なる選考フローに対応するため、
-ステージを独立テーブルとして管理
-
-#### 主な管理項目
-- `application_id`
-- `stage_order`
-- `stage_type`
-- `stage_name`
-- `status`
-- `scheduled_at`
-- `completed_at`
-- `result_date`
-- `memo`
-
-#### ステータス例
-- `PENDING`
-- `SCHEDULED`
-- `COMPLETED`
-- `PASSED`
-- `FAILED`
-
-#### ステージ種別例
-- `INFO_SESSION`
-- `DOCUMENT_SCREENING`
-- `CODING_TEST`
-- `APTITUDE_TEST`
-- `FIRST_CASUAL_MEETING`
-- `SECOND_CASUAL_MEETING`
-- `THIRD_CASUAL_MEETING`
-- `FIRST_INTERVIEW`
-- `SECOND_INTERVIEW`
-- `THIRD_INTERVIEW`
-- `FOURTH_INTERVIEW`
-- `FINAL_INTERVIEW`
-- `OTHER`
-
-#### 役割分担
-- `stage_type` はステージの中分類を表す
-- `stage_name` は企業ごとの実際の表示名を自由入力で保持する
-
-例:
-- `stage_type = FIRST_INTERVIEW`
-- `stage_name = 一次面接(人事面接)`
-
----
-
-### 4-5. schedules
-
-面接・締切・結果通知などのスケジュールを管理
-
-実務において、選考とは独立した締切や通知も存在するため、
-両方を柔軟に扱える構造としています。
-
-#### 設計意図
-- 応募全体に紐づく予定
-- 特定ステージに紐づく予定
-
-の両方に対応できるように設計
-
-#### 主な管理項目
-- `application_id`
-- `stage_id`
-- `schedule_type`
-- `title`
-- `description`
-- `start_at`
-- `end_at`
-- `location`
-- `is_all_day`
-
-#### ScheduleType 例
-- `DEADLINE`
-- `EVENT`
-- `RESULT_ANNOUNCEMENT`
-- `OTHER`
-
-#### 重複防止ルール
-- `stage_id` がある場合は `application_id + stage_id + schedule_type + start_at` の組み合わせを一意として扱う
-- `stage_id` が `null` の場合は `application_id + schedule_type + start_at` の組み合わせを一意として扱う
-- 応募全体の日程は `stage_id = null` の同一キーで重複登録できない
-- 同じ応募情報・同じ時刻でも、別のステージに紐づく日程であれば別件として登録できる
-
----
-
-### 4-6. notes
-
-志望動機・面接内容・振り返りなどを記録
-
-#### 設計意図
-応募に紐づく自由記述メモを保持し、
-準備内容・実際の内容・振り返りを一元管理できるようにする。
-
-#### 主な管理項目
-- `application_id`
-- `title`
-- `note_type`
-- `content`
-- `created_at`
-- `updated_at`
-
-#### NoteType 例
-- `UNSPECIFIED`
-- `PREPARATION`
-- `ACTUAL_CONTENT`
-- `REVIEW`
-- `OTHER`
-
-#### 補足
-- `title` は任意入力であり、未入力の場合は `null`
-- 画面表示上の `タイトルなし` はフロントエンド側で補完する
-
----
-
-### 4-7. application_status_histories
-
-応募全体のステータス変更履歴を管理
-
-#### 設計意図
-- `applications.status` の現在値とは別に、状態がどのように変化したかを追跡する
-- ユーザーが直接追加するのではなく、応募ステータス変更時に自動生成する
-
-#### 主な管理項目
-- `application_id`
-- `from_status`
-- `to_status`
-- `changed_at`
-
-#### 現在の実装方針
-- `PATCH /applications/{id}` で `status` が実際に変化した場合のみ履歴を保存する
-- 同じステータスへの更新では履歴を追加しない
-- 履歴は `GET /applications/{id}/status-histories` で新しい順に取得する
-
----
-
-### 4-8. stage_status_histories
-
-各選考ステージの状態変更履歴を管理
-
-#### 設計意図
-- `stages.status` の現在値とは別に、各ステージ状態がどのように変化したかを追跡する
-- ユーザーが直接追加するのではなく、ステージステータス変更時に自動生成する
-
-#### 主な管理項目
-- `stage_id`
-- `from_status`
-- `to_status`
-- `changed_at`
-
-#### 現在の実装方針
-- `PATCH /stages/{id}` で `status` が実際に変化した場合のみ履歴を保存する
-- 同じステータスへの更新では履歴を追加しない
-- 履歴は `GET /stages/{id}/status-histories` で新しい順に取得する
-
----
-
-## 5. テーブル関係
-
-- user 1 : N companies
-- user 1 : N applications
-- company 1 : N applications
-- application 1 : N stages
-- application 1 : N schedules
-- application 1 : N notes
-- application 1 : N application_status_histories
-- stage 1 : N stage_status_histories
-- stage 1 : N schedules
-
----
-
-## 6. 設計ポイント
-
-### 6-1. 応募中心設計
-応募（applications）を中心にデータを集約することで、
-就職活動の情報を一元管理できる構造にしました。
-
----
-
-### 6-2. ステータスとステージの分離
-
-- 応募全体の進捗 → `applications.status`
-- 各選考段階の進捗 → `stages.status`
-
-として分離することで、
-粒度の異なる進捗管理を可能にしています。
-
-`applications.status` は応募全体の大きなカテゴリを管理し、
-`stages.status` は各選考ステージの詳細な進捗を管理します。
-
-例:
-- `applications.status = INTERVIEW`
-- `stages.stage_type = FIRST_INTERVIEW`
-- `stages.stage_name = 一次面接`
-- `stages.status = SCHEDULED`
-
----
-
-### 6-3. 状態変更履歴の管理
-
-履歴テーブルを設けることで、
-
-- いつどの状態に変わったか
-- 応募全体および各ステージの流れ
-
-を追跡できるようにしました。
-
-現在は `applications.status` の変更時に
-`application_status_histories` を自動生成する構成としています。
-また、`stages.status` の変更時には
-`stage_status_histories` を自動生成する構成としています。
-
----
-
-### 6-4. 柔軟なスケジュール設計
-
-スケジュールを
-
-- 応募単位
-- ステージ単位
-
-の両方で扱えるようにすることで、
-実務に近い柔軟な管理を実現しました。
-
-また、同一キーの重複を防ぐことで、
-同じ予定の二重登録を抑止しています。
-
----
-
-### 6-5. 自由度の高いメモ設計
-
-メモは応募単位で保持しつつ、
-`note_type` により用途を分類できるようにしました。
-
-これにより、
-
-- 面接前の準備メモ
-- 当日に実際に聞かれた内容
-- 選考後の振り返り
-
-を同じ構造で蓄積できます。
-
----
-
-## 7. 今後の改善
-
-- 通知機能（面接・締切リマインド）
-- カレンダー連携
-- 分析機能（通過率・進捗可視化）
-- モバイル対応UI
-
----
-
-## 8. 想定ユーザー
-
-- 就職活動中の学生
-- 転職活動中の社会人
-
----
-
-## 9. ステータス遷移の考え方
-
-- `REJECTED` は終了状態
-- `OFFERED` は最終状態
-- ステータスは基本的に前進方向に遷移し、
-  過去の状態に戻ることは想定していません。
-
-応募全体の進捗は、以下のような大きなカテゴリで管理します。
-- `NOT_STARTED`
-- `APPLICATION`
-- `INFO_SESSION`
-- `DOCUMENT_SCREENING`
-- `TEST`
-- `CASUAL_MEETING`
-- `INTERVIEW`
-- `OFFERED`
-- `REJECTED`
-
----
-
-## 10. API設計
-
-本システムでは、応募情報 (`applications`) を中心に、
-選考ステージ・スケジュール・メモを紐づける形でAPIを設計しています。
-
-RESTfulな設計を意識し、リソース単位で責務を分離しています。
-
----
-
-### 10-1. 認証 API
-
-ユーザー登録、ログイン、認証状態の確認を行うためのAPIです。
-
-| Method | Endpoint | 説明 |
-|---|---|---|
-| POST | `/auth/signup` | 新規ユーザー登録 |
-| POST | `/auth/login` | ログイン |
-| POST | `/auth/refresh` | アクセストークンの再発行 |
-| GET | `/auth/me` | 現在ログイン中のユーザー情報を取得 |
-
-#### 設計意図
-認証・認可はアプリケーション全体の基盤であるため、  
-他のリソースとは分離して `/auth` 配下にまとめています。
-
-#### 現在の実装状況
-- `POST /auth/signup` は実装済み
-- `POST /auth/login` は実装済みで、`accessToken` を返却する
-- `GET /auth/me` は実装済みで、Bearer トークンから現在ユーザー情報を返却する
-- `POST /auth/refresh` は未実装
-
----
-
-### 10-2. 企業 API
-
-応募先企業の基本情報を管理するためのAPIです。
-
-| Method | Endpoint | 説明 |
-|---|---|---|
-| POST | `/companies` | 企業情報を登録 |
-| GET | `/companies` | 企業一覧を取得 |
-| GET | `/companies/{id}` | 特定企業の詳細を取得 |
-| PATCH | `/companies/{id}` | 特定企業の情報を更新 |
-| DELETE | `/companies/{id}` | 特定企業を削除 |
-
-#### 設計意図
-企業情報は共有マスタではなく、現在ログイン中のユーザーが管理する個人データとして扱います。  
-一覧取得・詳細取得・更新・削除はユーザー所有データのみに限定しています。
-
----
-
-### 10-3. 応募情報 API
-
-応募情報を管理する中心APIです。  
-本システムでは、応募情報を軸として各種データを紐づけています。
-
-| Method | Endpoint | 説明 |
-|---|---|---|
-| POST | `/applications` | 応募情報を登録 |
-| GET | `/applications` | 応募情報一覧を取得 |
-| GET | `/applications/{id}` | 特定応募情報の詳細を取得 |
-| PATCH | `/applications/{id}` | 特定応募情報を更新 |
-| DELETE | `/applications/{id}` | 特定応募情報を削除 |
-
-#### 拡張API（検索・可視化）
-
-| Method | Endpoint | 説明 |
-|---|---|---|
-| GET | `/applications?status=INTERVIEW&sort=updatedAt` | ステータス・ソート条件によるフィルタ取得 |
-| GET | `/applications/{id}/timeline` | 応募のステータス履歴および選考ステージの進捗を統合し、時系列で可視化するためのAPI |
-| GET | `/applications/{id}/status-histories` | 応募全体のステータス変更履歴を新しい順で取得 |
-
-#### 設計意図
-応募情報 (`applications`) は本システムの中心リソースであり、  
-検索・並び替え・履歴の可視化といった拡張機能もこのリソースに集約しています。  
-また、`user_id` を持つユーザー所有データとして扱い、`companyId` には現在ログイン中のユーザーが所有する会社のみ指定可能です。
-
----
-
-### 10-4. 選考ステージ API
-
-応募ごとの選考ステージを管理するためのAPIです。
-
-| Method | Endpoint | 説明 |
-|---|---|---|
-| POST | `/applications/{id}/stages` | 特定応募に選考ステージを追加 |
-| GET | `/applications/{id}/stages` | 特定応募の選考ステージ一覧を取得 |
-| PATCH | `/stages/{id}` | 特定選考ステージを更新 |
-| DELETE | `/stages/{id}` | 特定選考ステージを削除 |
-| GET | `/stages/{id}/status-histories` | 特定選考ステージのステータス変更履歴を新しい順で取得 |
-
-#### 設計意図
-選考フローは企業ごとに異なるため、  
-応募単位で複数のステージを柔軟に追加・管理できる構造にしています。
-
----
-
-### 10-5. スケジュール API
-
-面接日程、締切、結果通知日などのスケジュールを管理するためのAPIです。
-
-| Method | Endpoint | 説明 |
-|---|---|---|
-| POST | `/applications/{id}/schedules` | 特定応募にスケジュールを追加 |
-| GET | `/applications/{id}/schedules` | 特定応募のスケジュール一覧を取得 |
-| PATCH | `/schedules/{id}` | 特定スケジュールを更新 |
-| DELETE | `/schedules/{id}` | 特定スケジュールを削除 |
-
-#### 実装済みルール
-- `stage_id` がある場合は `application_id + stage_id + schedule_type + start_at` の組み合わせで重複登録を禁止
-- `stage_id` が `null` の場合は `application_id + schedule_type + start_at` の組み合わせで重複登録を禁止
-
-#### 設計意図
-スケジュールは応募全体に紐づく情報として扱い、  
-必要に応じて選考ステージ単位の予定にも対応できるように設計しています。
-
----
-
-### 10-6. メモ API
-
-志望動機、面接内容、企業研究メモなどを管理するためのAPIです。
-
-| Method | Endpoint | 説明 |
-|---|---|---|
-| POST | `/applications/{id}/notes` | 特定応募にメモを追加 |
-| GET | `/applications/{id}/notes` | 特定応募のメモ一覧を取得 |
-| PATCH | `/notes/{id}` | 特定メモを更新 |
-| DELETE | `/notes/{id}` | 特定メモを削除 |
-
-#### 実装済みルール
-- `title` は任意入力であり、未入力時は `null`
-- `note_type` は `UNSPECIFIED`, `PREPARATION`, `ACTUAL_CONTENT`, `REVIEW`, `OTHER` を使用
-- `content` は必須
-
-#### 設計意図
-メモは応募単位で整理することで、  
-企業ごとの志望動機、面接記録、振り返りを一元管理できるようにしています。
-
----
-
-### 10-7. 統計 API（拡張機能）
-
-今後の拡張として、応募状況を可視化するための統計APIを想定しています。
-
-| Method | Endpoint | 説明 |
-|---|---|---|
-| GET | `/dashboard/summary` | 応募数・進行中件数・合否件数などの要約情報を取得 |
-| GET | `/dashboard/stats` | 通過率やステージ別統計情報を取得 |
-
-#### 想定する取得内容
-- 総応募数
-- 現在進行中の応募数
-- 合格 / 不合格件数
-- ステージ別通過率
-- 応募状況の可視化データ
-
-#### 設計意図
-本システムは単なる記録ツールではなく、  
-応募状況を分析し、次の行動判断に活かせる構造を目指しています。
-
----
-
-## 11. API設計上のポイント
-
-- 認証機能は `/auth` に分離し、JWT による Bearer 認証を採用する
-- 認証情報は `users` テーブルで管理し、パスワードは `password_hash` に暗号化して保存する
-- `companies` と `applications` はどちらもユーザー所有データとして扱う
-- 応募情報 (`applications`) を中心に、子リソースとして `stages` / `schedules` / `notes` を管理する
-- `stages` / `schedules` / `notes` / histories は親 `application` の所有者を基準にアクセスを制御する
-- `application_status_histories` はユーザーが直接操作せず、応募ステータス変更時に自動生成する
-- `stage_status_histories` はユーザーが直接操作せず、ステージステータス変更時に自動生成する
-- 未認証のリクエストは `401 Unauthorized` を返す
+このリポジトリは現在、バックエンド API を中心に実装しています。  
+README には、リポジトリ内に実装済みの内容のみを記載しています。

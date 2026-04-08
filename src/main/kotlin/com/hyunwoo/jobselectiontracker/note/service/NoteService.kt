@@ -1,29 +1,23 @@
 package com.hyunwoo.jobselectiontracker.note.service
 
 import com.hyunwoo.jobselectiontracker.application.entity.Application
-import com.hyunwoo.jobselectiontracker.application.repository.ApplicationRepository
+import com.hyunwoo.jobselectiontracker.common.security.CurrentUserProvider
+import com.hyunwoo.jobselectiontracker.common.security.OwnedResourceFinder
 import com.hyunwoo.jobselectiontracker.note.dto.CreateNoteRequest
 import com.hyunwoo.jobselectiontracker.note.dto.NoteResponse
 import com.hyunwoo.jobselectiontracker.note.dto.UpdateNoteRequest
 import com.hyunwoo.jobselectiontracker.note.entity.Note
 import com.hyunwoo.jobselectiontracker.note.repository.NoteRepository
 import com.hyunwoo.jobselectiontracker.user.entity.User
-import com.hyunwoo.jobselectiontracker.user.repository.UserRepository
-import java.util.NoSuchElementException
-import org.springframework.security.core.context.SecurityContextHolder
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
-/**
- * メモの作成、取得、更新、削除を担当するサービス。
- * 対象は現在ログイン中ユーザーの応募情報配下に限定する。
- */
 @Service
 @Transactional(readOnly = true)
 class NoteService(
     private val noteRepository: NoteRepository,
-    private val applicationRepository: ApplicationRepository,
-    private val userRepository: UserRepository
+    private val currentUserProvider: CurrentUserProvider,
+    private val ownedResourceFinder: OwnedResourceFinder
 ) {
 
     @Transactional
@@ -70,20 +64,14 @@ class NoteService(
     }
 
     private fun findApplicationByIdAndUserId(id: Long, userId: Long): Application {
-        return applicationRepository.findByIdAndUserId(id, userId)
-            ?: throw NoSuchElementException("応募情報ID $id に該当する応募情報が見つかりません。")
+        return ownedResourceFinder.findApplication(id, userId)
     }
 
     private fun findNoteByIdAndUserId(id: Long, userId: Long): Note {
-        return noteRepository.findByIdAndApplicationUserId(id, userId)
-            ?: throw NoSuchElementException("メモID $id に該当するメモが見つかりません。")
+        return ownedResourceFinder.findNote(id, userId)
     }
 
     private fun findCurrentUser(): User {
-        val email = SecurityContextHolder.getContext().authentication?.name
-            ?: throw IllegalStateException("現在の認証ユーザー情報を取得できません。")
-
-        return userRepository.findByEmail(email)
-            ?: throw NoSuchElementException("メールアドレス $email に該当するユーザーが見つかりません。")
+        return currentUserProvider.getCurrentUser()
     }
 }

@@ -156,6 +156,31 @@ class StageControllerTest {
         assertEquals(StageStatus.COMPLETED, histories[0].toStatus)
     }
 
+    @Test
+    fun `PATCH stages with invalid status transition returns bad request`() {
+        val application = createApplication()
+        val stage = stageRepository.save(
+            Stage(
+                application = application,
+                stageOrder = 1,
+                stageType = StageType.FIRST_INTERVIEW,
+                stageName = "Final interview",
+                status = StageStatus.PASSED
+            )
+        )
+
+        val request = mapOf("status" to "SCHEDULED")
+
+        mockMvc.perform(
+            patch("/stages/${stage.id}")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request))
+        )
+            .andExpect(status().isBadRequest)
+            .andExpect(jsonPath("$.status").value(400))
+            .andExpect(jsonPath("$.code").value("INVALID_REQUEST"))
+    }
+
     private fun createApplication(): Application {
         val user = createUser()
         val company = companyRepository.save(
