@@ -4,14 +4,26 @@ import com.hyunwoo.jobselectiontracker.stage.entity.Stage
 import org.springframework.data.jpa.repository.JpaRepository
 
 /**
- * Stageエンティティに対するDBアクセスを担当するリポジトリ。
- * ステージ一覧取得や同一応募内の並び順重複確認に利用する。
+ * Stage エンティティの永続化を担当するリポジトリ。
+ * 応募情報および所有ユーザーを基準にステージを検索する。
  */
 interface StageRepository : JpaRepository<Stage, Long> {
 
-    /** 指定した応募情報に紐づくステージ一覧を表示順で取得する。 */
-    fun findAllByApplicationIdOrderByStageOrderAsc(applicationId: Long): List<Stage>
+    /**
+     * 指定した応募情報かつ指定したユーザーに属するステージ一覧を順序昇順で取得する。
+     */
+    fun findAllByApplicationIdAndApplicationUserIdOrderByStageOrderAsc(
+        applicationId: Long,
+        userId: Long
+    ): List<Stage>
 
-    /** 同一応募内で指定した表示順がすでに使われているか確認する。 */
+    /**
+     * 指定したステージIDかつ指定したユーザーに属するステージを取得する。
+     */
+    fun findByIdAndApplicationUserId(id: Long, userId: Long): Stage?
+
+    /**
+     * 同一応募情報内で stageOrder がすでに使用されているかを確認する。
+     */
     fun existsByApplicationIdAndStageOrder(applicationId: Long, stageOrder: Int): Boolean
 }

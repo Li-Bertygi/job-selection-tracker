@@ -10,29 +10,30 @@ import com.hyunwoo.jobselectiontracker.stage.entity.StageStatus
 import com.hyunwoo.jobselectiontracker.stage.history.entity.StageStatusHistory
 import com.hyunwoo.jobselectiontracker.stage.history.repository.StageStatusHistoryRepository
 import com.hyunwoo.jobselectiontracker.stage.repository.StageRepository
+import com.hyunwoo.jobselectiontracker.user.entity.User
+import com.hyunwoo.jobselectiontracker.user.repository.UserRepository
+import org.springframework.security.core.context.SecurityContextHolder
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.util.NoSuchElementException
 
 /**
- * 選考ステージドメインのビジネスロジックを担当するサービス。
- * 応募情報配下の順序管理、ステージCRUD、ステータス変更履歴の自動記録を行う。
+ * 選考ステージの作成、取得、更新、削除を担当するサービス。
+ * 参照対象は現在ログイン中ユーザーの応募情報配下に限定する。
  */
 @Service
 @Transactional(readOnly = true)
 class StageService(
-    /** Stageエンティティの保存と取得を担当するリポジトリ。 */
     private val stageRepository: StageRepository,
-    /** 応募情報の存在確認に使用するリポジトリ。 */
     private val applicationRepository: ApplicationRepository,
-    /** ステージ状態変更履歴を保存するリポジトリ。 */
+    private val userRepository: UserRepository,
     private val stageStatusHistoryRepository: StageStatusHistoryRepository
 ) {
 
-    /** 指定した応募情報に新しい選考ステージを登録する。 */
     @Transactional
     fun createStage(applicationId: Long, request: CreateStageRequest): StageResponse {
-        val application = findApplicationById(applicationId)
+        val currentUser = findCurrentUser()
+        val application = findApplicationByIdAndUserId(applicationId, currentUser.id!!)
         validateStageOrder(applicationId, request.stageOrder)
 
         val stage = Stage(
@@ -50,18 +51,20 @@ class StageService(
         return StageResponse.from(stageRepository.save(stage))
     }
 
-    /** 指定した応募情報に属する選考ステージ一覧を順序順で取得する。 */
     fun getStages(applicationId: Long): List<StageResponse> {
-        findApplicationById(applicationId)
+        val currentUser = findCurrentUser()
+        findApplicationByIdAndUserId(applicationId, currentUser.id!!)
 
-        return stageRepository.findAllByApplicationIdOrderByStageOrderAsc(applicationId)
-            .map(StageResponse::from)
+        return stageRepository.findAllByApplicationIdAndApplicationUserIdOrderByStageOrderAsc(
+            applicationId = applicationId,
+            userId = currentUser.id!!
+        ).map(StageResponse::from)
     }
 
-    /** 指定した選考ステージを部分更新する。 */
     @Transactional
     fun updateStage(id: Long, request: UpdateStageRequest): StageResponse {
-        val stage = findStageById(id)
+        val currentUser = findCurrentUser()
+        val stage = findStageByIdAndUserId(id, currentUser.id!!)
         val previousStatus = stage.status
 
         request.stageOrder?.let {
@@ -87,37 +90,36 @@ class StageService(
         return StageResponse.from(savedStage)
     }
 
-    /** 指定した選考ステージを削除する。 */
     @Transactional
     fun deleteStage(id: Long) {
-        val stage = findStageById(id)
-        stageRepository.delete(stage)
+        val currentUser = findCurrentUser()
+        stageRepository.delete(findStageByIdAndUserId(id, currentUser.id!!))
     }
 
-    /** 応募情報IDで応募情報を取得し、存在しなければ404対象の例外を投げる。 */
-    private fun findApplicationById(id: Long): Application {
-        return applicationRepository.findById(id)
-            .orElseThrow {
-                NoSuchElementException("応募情報ID $id に該当する応募情報が見つかりません。")
-            }
+    private fun findApplicationByIdAndUserId(id: Long, userId: Long): Application {
+        return applicationRepository.findByIdAndUserId(id, userId)
+            ?: throw NoSuchElementException("応募情報ID $id に該当する応募情報が見つかりません。")
     }
 
-    /** ステージIDでステージを取得し、存在しなければ404対象の例外を投げる。 */
-    private fun findStageById(id: Long): Stage {
-        return stageRepository.findById(id)
-            .orElseThrow {
-                NoSuchElementException("ステージID $id に該当するステージが見つかりません。")
-            }
+    private fun findStageByIdAndUserId(id: Long, userId: Long): Stage {
+        return stageRepository.findByIdAndApplicationUserId(id, userId)
+            ?: throw NoSuchElementException("ステージID $id に該当するステージが見つかりません。")
     }
 
-    /** 同じ応募情報内で stageOrder が重複しないように検証する。 */
+    private fun findCurrentUser(): User {
+        val email = SecurityContextHolder.getContext().authentication?.name
+            ?: throw IllegalStateException("現在の認証ユーザー情報を取得できません。")
+
+        return userRepository.findByEmail(email)
+            ?: throw NoSuchElementException("メールアドレス $email に該当するユーザーが見つかりません。")
+    }
+
     private fun validateStageOrder(applicationId: Long, stageOrder: Int) {
         if (stageRepository.existsByApplicationIdAndStageOrder(applicationId, stageOrder)) {
             throw IllegalArgumentException("応募情報ID $applicationId ではステージ順序 $stageOrder がすでに使用されています。")
         }
     }
 
-    /** ステージ状態が変更された場合のみ履歴を自動保存する。 */
     private fun saveStatusHistoryIfChanged(
         stage: Stage,
         previousStatus: StageStatus,

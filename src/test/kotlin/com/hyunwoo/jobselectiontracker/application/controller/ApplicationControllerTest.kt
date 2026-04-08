@@ -60,7 +60,7 @@ class ApplicationControllerTest {
 
     @Test
     fun `POST applications creates application`() {
-        val company = createCompany()
+        val company = createCompany(createUser())
         val request = mapOf(
             "companyId" to company.id,
             "jobTitle" to "Backend Engineer",
@@ -83,7 +83,7 @@ class ApplicationControllerTest {
 
     @Test
     fun `POST applications with blank job title returns bad request`() {
-        val company = createCompany()
+        val company = createCompany(createUser())
         val request = mapOf(
             "companyId" to company.id,
             "jobTitle" to "",
@@ -101,6 +101,17 @@ class ApplicationControllerTest {
     }
 
     @Test
+    fun `GET applications returns only current user applications`() {
+        val myApplication = createApplication(user = createUser(), status = ApplicationStatus.APPLICATION)
+        createApplication(user = createOtherUser(), status = ApplicationStatus.INTERVIEW)
+
+        mockMvc.perform(get("/applications"))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.length()").value(1))
+            .andExpect(jsonPath("$[0].id").value(myApplication.id!!))
+    }
+
+    @Test
     fun `GET applications with missing id returns not found`() {
         mockMvc.perform(get("/applications/9999"))
             .andExpect(status().isNotFound)
@@ -109,7 +120,7 @@ class ApplicationControllerTest {
 
     @Test
     fun `PATCH applications with changed status creates status history`() {
-        val application = createApplication(status = ApplicationStatus.APPLICATION)
+        val application = createApplication(user = createUser(), status = ApplicationStatus.APPLICATION)
         val request = mapOf("status" to "INTERVIEW")
 
         mockMvc.perform(
@@ -126,11 +137,25 @@ class ApplicationControllerTest {
         assertEquals(ApplicationStatus.INTERVIEW, histories[0].toStatus)
     }
 
-    private fun createApplication(status: ApplicationStatus): Application {
+    @Test
+    fun `PATCH applications owned by another user returns not found`() {
+        val application = createApplication(user = createOtherUser(), status = ApplicationStatus.APPLICATION)
+        val request = mapOf("status" to "INTERVIEW")
+
+        mockMvc.perform(
+            patch("/applications/${application.id}")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request))
+        )
+            .andExpect(status().isNotFound)
+            .andExpect(jsonPath("$.status").value(404))
+    }
+
+    private fun createApplication(user: User, status: ApplicationStatus): Application {
         return applicationRepository.save(
             Application(
-                user = createUser(),
-                company = createCompany(),
+                user = user,
+                company = createCompany(user),
                 jobTitle = "Backend Engineer",
                 applicationRoute = "Wantedly",
                 status = status,
@@ -140,9 +165,10 @@ class ApplicationControllerTest {
         )
     }
 
-    private fun createCompany(): Company {
+    private fun createCompany(user: User): Company {
         return companyRepository.save(
             Company(
+                user = user,
                 name = "OpenAI",
                 industry = "AI",
                 websiteUrl = "https://openai.com",
@@ -158,6 +184,17 @@ class ApplicationControllerTest {
                     email = "test@example.com",
                     password = "encoded-password",
                     name = "テストユーザー"
+                )
+            )
+    }
+
+    private fun createOtherUser(): User {
+        return userRepository.findByEmail("other@example.com")
+            ?: userRepository.save(
+                User(
+                    email = "other@example.com",
+                    password = "encoded-password",
+                    name = "他ユーザー"
                 )
             )
     }

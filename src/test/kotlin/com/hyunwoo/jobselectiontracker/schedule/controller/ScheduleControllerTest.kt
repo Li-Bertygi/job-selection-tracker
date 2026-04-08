@@ -12,6 +12,7 @@ import com.hyunwoo.jobselectiontracker.schedule.repository.ScheduleRepository
 import com.hyunwoo.jobselectiontracker.stage.repository.StageRepository
 import com.hyunwoo.jobselectiontracker.user.entity.User
 import com.hyunwoo.jobselectiontracker.user.repository.UserRepository
+import java.time.LocalDateTime
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
@@ -24,7 +25,6 @@ import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
-import java.time.LocalDateTime
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -137,8 +137,10 @@ class ScheduleControllerTest {
     }
 
     private fun createApplication(): Application {
+        val user = createUser()
         val company = companyRepository.save(
             Company(
+                user = user,
                 name = "OpenAI",
                 industry = "AI",
                 websiteUrl = "https://openai.com",
@@ -148,7 +150,7 @@ class ScheduleControllerTest {
 
         return applicationRepository.save(
             Application(
-                user = createUser(),
+                user = user,
                 company = company,
                 jobTitle = "Backend Engineer",
                 applicationRoute = "Wantedly",

@@ -3,6 +3,8 @@ package com.hyunwoo.jobselectiontracker.company.controller
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.hyunwoo.jobselectiontracker.company.entity.Company
 import com.hyunwoo.jobselectiontracker.company.repository.CompanyRepository
+import com.hyunwoo.jobselectiontracker.user.entity.User
+import com.hyunwoo.jobselectiontracker.user.repository.UserRepository
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
@@ -13,6 +15,7 @@ import org.springframework.security.test.context.support.WithMockUser
 import org.springframework.test.context.ActiveProfiles
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
+import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
@@ -20,7 +23,7 @@ import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
-@WithMockUser
+@WithMockUser(username = "test@example.com")
 class CompanyControllerTest {
 
     @Autowired
@@ -32,9 +35,14 @@ class CompanyControllerTest {
     @Autowired
     private lateinit var companyRepository: CompanyRepository
 
+    @Autowired
+    private lateinit var userRepository: UserRepository
+
     @BeforeEach
     fun setUp() {
         companyRepository.deleteAll()
+        userRepository.deleteAll()
+        createUser()
     }
 
     @Test
@@ -43,7 +51,7 @@ class CompanyControllerTest {
             "name" to "OpenAI",
             "industry" to "AI",
             "websiteUrl" to "https://openai.com",
-            "memo" to "第一志望"
+            "memo" to "志望度高め"
         )
 
         mockMvc.perform(
@@ -55,6 +63,18 @@ class CompanyControllerTest {
             .andExpect(jsonPath("$.id").isNumber)
             .andExpect(jsonPath("$.name").value("OpenAI"))
             .andExpect(jsonPath("$.industry").value("AI"))
+    }
+
+    @Test
+    fun `GET companies returns only current user companies`() {
+        val myUser = createUser()
+        val myCompany = createCompany(myUser, "OpenAI")
+        createCompany(createOtherUser(), "Google")
+
+        mockMvc.perform(get("/companies"))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.length()").value(1))
+            .andExpect(jsonPath("$[0].id").value(myCompany.id!!))
     }
 
     @Test
@@ -77,5 +97,53 @@ class CompanyControllerTest {
         mockMvc.perform(get("/companies/9999"))
             .andExpect(status().isNotFound)
             .andExpect(jsonPath("$.status").value(404))
+    }
+
+    @Test
+    fun `PATCH companies owned by another user returns not found`() {
+        val otherCompany = createCompany(createOtherUser(), "Google")
+        val request = mapOf("memo" to "更新テスト")
+
+        mockMvc.perform(
+            patch("/companies/${otherCompany.id}")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request))
+        )
+            .andExpect(status().isNotFound)
+            .andExpect(jsonPath("$.status").value(404))
+    }
+
+    private fun createCompany(user: User, name: String): Company {
+        return companyRepository.save(
+            Company(
+                user = user,
+                name = name,
+                industry = "AI",
+                websiteUrl = "https://example.com",
+                memo = "テストメモ"
+            )
+        )
+    }
+
+    private fun createUser(): User {
+        return userRepository.findByEmail("test@example.com")
+            ?: userRepository.save(
+                User(
+                    email = "test@example.com",
+                    password = "encoded-password",
+                    name = "テストユーザー"
+                )
+            )
+    }
+
+    private fun createOtherUser(): User {
+        return userRepository.findByEmail("other@example.com")
+            ?: userRepository.save(
+                User(
+                    email = "other@example.com",
+                    password = "encoded-password",
+                    name = "他ユーザー"
+                )
+            )
     }
 }

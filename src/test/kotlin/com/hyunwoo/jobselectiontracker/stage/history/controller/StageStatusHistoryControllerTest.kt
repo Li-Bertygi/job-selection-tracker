@@ -93,8 +93,10 @@ class StageStatusHistoryControllerTest {
     }
 
     private fun createStage(status: StageStatus): Stage {
+        val user = createUser()
         val company = companyRepository.save(
             Company(
+                user = user,
                 name = "OpenAI",
                 industry = "AI",
                 websiteUrl = "https://openai.com",
@@ -104,7 +106,7 @@ class StageStatusHistoryControllerTest {
 
         val application = applicationRepository.save(
             Application(
-                user = createUser(),
+                user = user,
                 company = company,
                 jobTitle = "Backend Engineer",
                 applicationRoute = "Wantedly",

@@ -118,10 +118,11 @@ class NoteControllerTest {
     }
 
     private fun createApplication(): Application {
+        val user = createUser()
         return applicationRepository.save(
             Application(
-                user = createUser(),
-                company = createCompany(),
+                user = user,
+                company = createCompany(user),
                 jobTitle = "Backend Engineer",
                 applicationRoute = "Wantedly",
                 status = ApplicationStatus.APPLICATION,
@@ -131,13 +132,14 @@ class NoteControllerTest {
         )
     }
 
-    private fun createCompany(): Company {
+    private fun createCompany(user: User): Company {
         return companyRepository.save(
             Company(
+                user = user,
                 name = "OpenAI",
                 industry = "AI",
                 websiteUrl = "https://openai.com",
-                memo = "企業メモ"
+                memo = "志望度高め"
             )
         )
     }

@@ -157,8 +157,10 @@ class StageControllerTest {
     }
 
     private fun createApplication(): Application {
+        val user = createUser()
         val company = companyRepository.save(
             Company(
+                user = user,
                 name = "OpenAI",
                 industry = "AI",
                 websiteUrl = "https://openai.com",
@@ -168,7 +170,7 @@ class StageControllerTest {
 
         return applicationRepository.save(
             Application(
-                user = createUser(),
+                user = user,
                 company = company,
                 jobTitle = "Backend Engineer",
                 applicationRoute = "Wantedly",

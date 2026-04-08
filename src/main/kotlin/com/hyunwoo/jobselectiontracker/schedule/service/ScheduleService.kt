@@ -10,31 +10,32 @@ import com.hyunwoo.jobselectiontracker.schedule.entity.ScheduleType
 import com.hyunwoo.jobselectiontracker.schedule.repository.ScheduleRepository
 import com.hyunwoo.jobselectiontracker.stage.entity.Stage
 import com.hyunwoo.jobselectiontracker.stage.repository.StageRepository
-import org.springframework.stereotype.Service
-import org.springframework.transaction.annotation.Transactional
+import com.hyunwoo.jobselectiontracker.user.entity.User
+import com.hyunwoo.jobselectiontracker.user.repository.UserRepository
 import java.time.LocalDateTime
 import java.util.NoSuchElementException
+import org.springframework.security.core.context.SecurityContextHolder
+import org.springframework.stereotype.Service
+import org.springframework.transaction.annotation.Transactional
 
 /**
- * 日程ドメインのビジネスロジックを担当するサービス。
- * 応募情報単位の日程とステージ単位の日程を一元的に管理する。
+ * 日程の作成、取得、更新、削除を担当するサービス。
+ * 対象は現在ログイン中ユーザーの応募情報配下に限定する。
  */
 @Service
 @Transactional(readOnly = true)
 class ScheduleService(
-    /** 日程エンティティの保存と検索を担当するリポジトリ。 */
     private val scheduleRepository: ScheduleRepository,
-    /** 応募情報の存在確認と所属確認に使用するリポジトリ。 */
     private val applicationRepository: ApplicationRepository,
-    /** ステージの存在確認と応募情報所属確認に使用するリポジトリ。 */
-    private val stageRepository: StageRepository
+    private val stageRepository: StageRepository,
+    private val userRepository: UserRepository
 ) {
 
-    /** 指定した応募情報に新しい日程を登録する。 */
     @Transactional
     fun createSchedule(applicationId: Long, request: CreateScheduleRequest): ScheduleResponse {
-        val application = findApplicationById(applicationId)
-        val stage = request.stageId?.let { findStageById(it) }
+        val currentUser = findCurrentUser()
+        val application = findApplicationByIdAndUserId(applicationId, currentUser.id!!)
+        val stage = request.stageId?.let { findStageByIdAndUserId(it, currentUser.id!!) }
 
         validateStageBelongsToApplication(application, stage)
         validateDateRange(request.startAt, request.endAt)
@@ -60,21 +61,23 @@ class ScheduleService(
         return ScheduleResponse.from(scheduleRepository.save(schedule))
     }
 
-    /** 指定した応募情報に属する日程一覧を取得する。 */
     fun getSchedules(applicationId: Long): List<ScheduleResponse> {
-        findApplicationById(applicationId)
+        val currentUser = findCurrentUser()
+        findApplicationByIdAndUserId(applicationId, currentUser.id!!)
 
-        return scheduleRepository.findAllByApplicationIdOrderByStartAtAsc(applicationId)
-            .map(ScheduleResponse::from)
+        return scheduleRepository.findAllByApplicationIdAndApplicationUserIdOrderByStartAtAsc(
+            applicationId = applicationId,
+            userId = currentUser.id!!
+        ).map(ScheduleResponse::from)
     }
 
-    /** 既存の日程を部分更新する。 */
     @Transactional
     fun updateSchedule(id: Long, request: UpdateScheduleRequest): ScheduleResponse {
-        val schedule = findScheduleById(id)
+        val currentUser = findCurrentUser()
+        val schedule = findScheduleByIdAndUserId(id, currentUser.id!!)
 
         val nextStage = when {
-            request.stageId != null -> findStageById(request.stageId)
+            request.stageId != null -> findStageByIdAndUserId(request.stageId, currentUser.id!!)
             else -> schedule.stage
         }
         val nextScheduleType = request.scheduleType ?: schedule.scheduleType
@@ -102,52 +105,47 @@ class ScheduleService(
         return ScheduleResponse.from(scheduleRepository.saveAndFlush(schedule))
     }
 
-    /** 指定した日程を削除する。 */
     @Transactional
     fun deleteSchedule(id: Long) {
-        val schedule = findScheduleById(id)
-        scheduleRepository.delete(schedule)
+        val currentUser = findCurrentUser()
+        scheduleRepository.delete(findScheduleByIdAndUserId(id, currentUser.id!!))
     }
 
-    /** 応募情報IDで応募情報を取得し、存在しなければ404対象の例外を投げる。 */
-    private fun findApplicationById(id: Long): Application {
-        return applicationRepository.findById(id)
-            .orElseThrow {
-                NoSuchElementException("応募情報ID $id に該当する応募情報が見つかりません。")
-            }
+    private fun findApplicationByIdAndUserId(id: Long, userId: Long): Application {
+        return applicationRepository.findByIdAndUserId(id, userId)
+            ?: throw NoSuchElementException("応募情報ID $id に該当する応募情報が見つかりません。")
     }
 
-    /** ステージIDでステージを取得し、存在しなければ404対象の例外を投げる。 */
-    private fun findStageById(id: Long): Stage {
-        return stageRepository.findById(id)
-            .orElseThrow {
-                NoSuchElementException("ステージID $id に該当するステージが見つかりません。")
-            }
+    private fun findStageByIdAndUserId(id: Long, userId: Long): Stage {
+        return stageRepository.findByIdAndApplicationUserId(id, userId)
+            ?: throw NoSuchElementException("ステージID $id に該当するステージが見つかりません。")
     }
 
-    /** 日程IDで日程を取得し、存在しなければ404対象の例外を投げる。 */
-    private fun findScheduleById(id: Long): Schedule {
-        return scheduleRepository.findById(id)
-            .orElseThrow {
-                NoSuchElementException("日程ID $id に該当する日程が見つかりません。")
-            }
+    private fun findScheduleByIdAndUserId(id: Long, userId: Long): Schedule {
+        return scheduleRepository.findByIdAndApplicationUserId(id, userId)
+            ?: throw NoSuchElementException("日程ID $id に該当する日程が見つかりません。")
     }
 
-    /** 指定したステージが対象の応募情報に属しているかを検証する。 */
+    private fun findCurrentUser(): User {
+        val email = SecurityContextHolder.getContext().authentication?.name
+            ?: throw IllegalStateException("現在の認証ユーザー情報を取得できません。")
+
+        return userRepository.findByEmail(email)
+            ?: throw NoSuchElementException("メールアドレス $email に該当するユーザーが見つかりません。")
+    }
+
     private fun validateStageBelongsToApplication(application: Application, stage: Stage?) {
         if (stage != null && stage.application.id != application.id) {
             throw IllegalArgumentException("指定したステージは対象の応募情報に属していません。")
         }
     }
 
-    /** 終了日時が開始日時より前にならないように検証する。 */
     private fun validateDateRange(startAt: LocalDateTime, endAt: LocalDateTime?) {
         if (endAt != null && endAt.isBefore(startAt)) {
             throw IllegalArgumentException("終了日時は開始日時より前に設定できません。")
         }
     }
 
-    /** 新規作成時に主要キーの組み合わせが重複していないかを検証する。 */
     private fun validateDuplicateSchedule(
         applicationId: Long,
         stage: Stage?,
@@ -174,7 +172,6 @@ class ScheduleService(
         }
     }
 
-    /** 更新時に自分自身を除いた重複チェックが必要かを判定して検証する。 */
     private fun validateDuplicateScheduleOnUpdate(
         schedule: Schedule,
         stage: Stage?,
@@ -201,7 +198,6 @@ class ScheduleService(
         )
     }
 
-    /** 重複した日程キーに対する業務エラーメッセージを生成する。 */
     private fun buildDuplicateScheduleMessage(
         applicationId: Long,
         stage: Stage?,

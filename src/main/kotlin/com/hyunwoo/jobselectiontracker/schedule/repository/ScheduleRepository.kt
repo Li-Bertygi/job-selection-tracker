@@ -2,19 +2,31 @@ package com.hyunwoo.jobselectiontracker.schedule.repository
 
 import com.hyunwoo.jobselectiontracker.schedule.entity.Schedule
 import com.hyunwoo.jobselectiontracker.schedule.entity.ScheduleType
-import org.springframework.data.jpa.repository.JpaRepository
 import java.time.LocalDateTime
+import org.springframework.data.jpa.repository.JpaRepository
 
 /**
- * ScheduleエンティティのDBアクセスを担当するリポジトリ。
- * 応募情報単位の一覧取得と日程重複チェックに使用する。
+ * Schedule エンティティの永続化を担当するリポジトリ。
+ * 応募情報と所有ユーザーを基準に日程を取得する。
  */
 interface ScheduleRepository : JpaRepository<Schedule, Long> {
 
-    /** 指定した応募情報に属する日程を開始日時の昇順で取得する。 */
-    fun findAllByApplicationIdOrderByStartAtAsc(applicationId: Long): List<Schedule>
+    /**
+     * 指定した応募情報かつ指定したユーザーに属する日程を開始日時昇順で取得する。
+     */
+    fun findAllByApplicationIdAndApplicationUserIdOrderByStartAtAsc(
+        applicationId: Long,
+        userId: Long
+    ): List<Schedule>
 
-    /** ステージに紐づく日程で、主要キーの組み合わせが既に存在するかを確認する。 */
+    /**
+     * 指定した日程IDかつ指定したユーザーに属する日程を取得する。
+     */
+    fun findByIdAndApplicationUserId(id: Long, userId: Long): Schedule?
+
+    /**
+     * ステージ指定ありの日程重複を確認する。
+     */
     fun existsByApplicationIdAndStageIdAndScheduleTypeAndStartAt(
         applicationId: Long,
         stageId: Long,
@@ -22,7 +34,9 @@ interface ScheduleRepository : JpaRepository<Schedule, Long> {
         startAt: LocalDateTime
     ): Boolean
 
-    /** ステージ未指定の日程で、主要キーの組み合わせが既に存在するかを確認する。 */
+    /**
+     * ステージ未指定の日程重複を確認する。
+     */
     fun existsByApplicationIdAndStageIsNullAndScheduleTypeAndStartAt(
         applicationId: Long,
         scheduleType: ScheduleType,

@@ -9,6 +9,7 @@ import com.hyunwoo.jobselectiontracker.company.entity.Company
 import com.hyunwoo.jobselectiontracker.company.repository.CompanyRepository
 import com.hyunwoo.jobselectiontracker.user.entity.User
 import com.hyunwoo.jobselectiontracker.user.repository.UserRepository
+import java.time.LocalDateTime
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
@@ -20,7 +21,6 @@ import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
-import java.time.LocalDateTime
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -53,7 +53,8 @@ class ApplicationStatusHistoryControllerTest {
 
     @Test
     fun `GET status histories returns histories in changedAt desc order`() {
-        val application = createApplication(status = ApplicationStatus.INTERVIEW)
+        val user = createUser()
+        val application = createApplication(user, status = ApplicationStatus.INTERVIEW)
         applicationStatusHistoryRepository.save(
             ApplicationStatusHistory(
                 application = application,
@@ -84,11 +85,11 @@ class ApplicationStatusHistoryControllerTest {
             .andExpect(jsonPath("$.status").value(404))
     }
 
-    private fun createApplication(status: ApplicationStatus): Application {
+    private fun createApplication(user: User, status: ApplicationStatus): Application {
         return applicationRepository.save(
             Application(
-                user = createUser(),
-                company = createCompany(),
+                user = user,
+                company = createCompany(user),
                 jobTitle = "Backend Engineer",
                 applicationRoute = "Wantedly",
                 status = status,
@@ -98,13 +99,14 @@ class ApplicationStatusHistoryControllerTest {
         )
     }
 
-    private fun createCompany(): Company {
+    private fun createCompany(user: User): Company {
         return companyRepository.save(
             Company(
+                user = user,
                 name = "OpenAI",
                 industry = "AI",
                 websiteUrl = "https://openai.com",
-                memo = "企業メモ"
+                memo = "志望度高め"
             )
         )
     }
