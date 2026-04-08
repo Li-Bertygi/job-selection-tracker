@@ -16,3 +16,8 @@ spring:
   sql:
     init:
       mode: never
+
+jwt:
+  secret: "test-secret-key-for-jwt-test-secret-key-123456"
+  access-token-expiration-seconds: 3600
+  token-type: "Bearer"

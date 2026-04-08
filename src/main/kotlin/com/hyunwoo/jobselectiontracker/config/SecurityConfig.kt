@@ -1,24 +1,27 @@
 package com.hyunwoo.jobselectiontracker.config
 
+import com.hyunwoo.jobselectiontracker.auth.jwt.JwtAuthenticationFilter
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
+import org.springframework.http.HttpStatus
 import org.springframework.security.config.annotation.web.builders.HttpSecurity
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity
 import org.springframework.security.config.http.SessionCreationPolicy
 import org.springframework.security.web.SecurityFilterChain
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter
 
 /**
- * 開発初期段階向けのセキュリティ設定。
- * 認証機能を実装する前にCRUD検証を進められるよう、全リクエストを一時的に許可している。
+ * JWT ベースの認証構成を定義する Security 設定クラス。
  */
 @Configuration
 @EnableWebSecurity
-class SecurityConfig {
+class SecurityConfig(
+    /** Bearer token を検証して SecurityContext に認証情報を設定するフィルタ。 */
+    private val jwtAuthenticationFilter: JwtAuthenticationFilter
+) {
 
     /**
-     * Spring Securityのフィルタチェーンを定義する。
-     * テスト用でCSRFとデフォルトログインを無効化し、ステートレスなAPI構成にしている。
-     * 今後修正する予定
+     * 認証・認可ルールと JWT フィルタ登録を含む SecurityFilterChain を構成する。
      */
     @Bean
     fun securityFilterChain(http: HttpSecurity): SecurityFilterChain {
@@ -27,9 +30,21 @@ class SecurityConfig {
             .sessionManagement { session ->
                 session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
             }
-            .authorizeHttpRequests { auth ->
-                auth.anyRequest().permitAll()
+            .exceptionHandling { exceptions ->
+                exceptions
+                    .authenticationEntryPoint { _, response, _ ->
+                        response.sendError(HttpStatus.UNAUTHORIZED.value())
+                    }
+                    .accessDeniedHandler { _, response, _ ->
+                        response.sendError(HttpStatus.FORBIDDEN.value())
+                    }
             }
+            .authorizeHttpRequests { auth ->
+                auth
+                    .requestMatchers("/auth/signup", "/auth/login").permitAll()
+                    .anyRequest().authenticated()
+            }
+            .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter::class.java)
             .formLogin { it.disable() }
             .httpBasic { it.disable() }
 
