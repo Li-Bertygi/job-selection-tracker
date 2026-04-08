@@ -130,7 +130,7 @@ class ScheduleService(
 
     private fun validateDateRange(startAt: LocalDateTime, endAt: LocalDateTime?) {
         if (endAt != null && endAt.isBefore(startAt)) {
-            throw InvalidRequestException("endAt must be greater than or equal to startAt.")
+            throw InvalidRequestException("終了日時は開始日時以降である必要があります。")
         }
     }
 
@@ -187,9 +187,9 @@ class ScheduleService(
 
     private fun buildDuplicateScheduleMessage(stage: Stage?): String {
         return if (stage != null) {
-            "A schedule with the same application, stage, type, and startAt already exists."
+            "同じ応募・同じステージ・同じ種別・同じ開始日時の予定はすでに存在します。"
         } else {
-            "A schedule with the same application, type, and startAt already exists."
+            "同じ応募・同じ種別・同じ開始日時の予定はすでに存在します。"
         }
     }
 }

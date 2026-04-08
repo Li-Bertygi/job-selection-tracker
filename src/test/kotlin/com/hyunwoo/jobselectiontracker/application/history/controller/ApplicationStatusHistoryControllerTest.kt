@@ -83,6 +83,7 @@ class ApplicationStatusHistoryControllerTest {
         mockMvc.perform(get("/applications/9999/status-histories"))
             .andExpect(status().isNotFound)
             .andExpect(jsonPath("$.status").value(404))
+            .andExpect(jsonPath("$.code").value("RESOURCE_NOT_FOUND"))
     }
 
     private fun createApplication(user: User, status: ApplicationStatus): Application {

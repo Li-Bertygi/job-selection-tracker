@@ -178,7 +178,7 @@ class ApplicationService(
 
         if (nextStatus !in allowedNextStatuses) {
             throw InvalidRequestException(
-                "Cannot change application status from $currentStatus to $nextStatus."
+                "応募ステータスを $currentStatus から $nextStatus へ変更することはできません。"
             )
         }
     }

@@ -1,6 +1,7 @@
 package com.hyunwoo.jobselectiontracker.company.controller
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.hyunwoo.jobselectiontracker.application.repository.ApplicationRepository
 import com.hyunwoo.jobselectiontracker.company.entity.Company
 import com.hyunwoo.jobselectiontracker.company.repository.CompanyRepository
 import com.hyunwoo.jobselectiontracker.user.entity.User
@@ -14,6 +15,7 @@ import org.springframework.http.MediaType
 import org.springframework.security.test.context.support.WithMockUser
 import org.springframework.test.context.ActiveProfiles
 import org.springframework.test.web.servlet.MockMvc
+import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post
@@ -36,10 +38,14 @@ class CompanyControllerTest {
     private lateinit var companyRepository: CompanyRepository
 
     @Autowired
+    private lateinit var applicationRepository: ApplicationRepository
+
+    @Autowired
     private lateinit var userRepository: UserRepository
 
     @BeforeEach
     fun setUp() {
+        applicationRepository.deleteAll()
         companyRepository.deleteAll()
         userRepository.deleteAll()
         createUser()
@@ -90,6 +96,7 @@ class CompanyControllerTest {
         )
             .andExpect(status().isBadRequest)
             .andExpect(jsonPath("$.status").value(400))
+            .andExpect(jsonPath("$.code").value("INVALID_REQUEST"))
     }
 
     @Test
@@ -97,6 +104,7 @@ class CompanyControllerTest {
         mockMvc.perform(get("/companies/9999"))
             .andExpect(status().isNotFound)
             .andExpect(jsonPath("$.status").value(404))
+            .andExpect(jsonPath("$.code").value("RESOURCE_NOT_FOUND"))
     }
 
     @Test
@@ -111,6 +119,32 @@ class CompanyControllerTest {
         )
             .andExpect(status().isNotFound)
             .andExpect(jsonPath("$.status").value(404))
+            .andExpect(jsonPath("$.code").value("RESOURCE_NOT_FOUND"))
+    }
+
+    @Test
+    fun `DELETE companies with linked applications returns conflict`() {
+        val company = createCompany(createUser(), "OpenAI")
+
+        mockMvc.perform(
+            post("/applications")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    objectMapper.writeValueAsString(
+                        mapOf(
+                            "companyId" to company.id,
+                            "jobTitle" to "Backend Engineer",
+                            "status" to "APPLICATION"
+                        )
+                    )
+                )
+        )
+            .andExpect(status().isCreated)
+
+        mockMvc.perform(delete("/companies/${company.id}"))
+            .andExpect(status().isConflict)
+            .andExpect(jsonPath("$.status").value(409))
+            .andExpect(jsonPath("$.code").value("DATA_INTEGRITY_VIOLATION"))
     }
 
     private fun createCompany(user: User, name: String): Company {

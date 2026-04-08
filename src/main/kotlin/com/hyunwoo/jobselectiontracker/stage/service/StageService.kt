@@ -158,7 +158,7 @@ class StageService(
 
         if (nextStatus !in allowedNextStatuses) {
             throw InvalidRequestException(
-                "Cannot change stage status from $currentStatus to $nextStatus."
+                "選考ステージのステータスを $currentStatus から $nextStatus へ変更することはできません。"
             )
         }
     }

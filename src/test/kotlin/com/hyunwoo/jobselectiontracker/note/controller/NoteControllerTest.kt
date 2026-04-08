@@ -101,6 +101,7 @@ class NoteControllerTest {
         )
             .andExpect(status().isBadRequest)
             .andExpect(jsonPath("$.status").value(400))
+            .andExpect(jsonPath("$.code").value("INVALID_REQUEST"))
             .andExpect(jsonPath("$.errors.content").exists())
     }
 
@@ -115,6 +116,7 @@ class NoteControllerTest {
         )
             .andExpect(status().isNotFound)
             .andExpect(jsonPath("$.status").value(404))
+            .andExpect(jsonPath("$.code").value("RESOURCE_NOT_FOUND"))
     }
 
     private fun createApplication(): Application {

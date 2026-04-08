@@ -1,6 +1,13 @@
 package com.hyunwoo.jobselectiontracker.auth.controller
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.hyunwoo.jobselectiontracker.application.history.repository.ApplicationStatusHistoryRepository
+import com.hyunwoo.jobselectiontracker.application.repository.ApplicationRepository
+import com.hyunwoo.jobselectiontracker.company.repository.CompanyRepository
+import com.hyunwoo.jobselectiontracker.note.repository.NoteRepository
+import com.hyunwoo.jobselectiontracker.schedule.repository.ScheduleRepository
+import com.hyunwoo.jobselectiontracker.stage.history.repository.StageStatusHistoryRepository
+import com.hyunwoo.jobselectiontracker.stage.repository.StageRepository
 import com.hyunwoo.jobselectiontracker.user.entity.User
 import com.hyunwoo.jobselectiontracker.user.repository.UserRepository
 import org.junit.jupiter.api.BeforeEach
@@ -31,10 +38,38 @@ class AuthControllerTest {
     private lateinit var userRepository: UserRepository
 
     @Autowired
+    private lateinit var companyRepository: CompanyRepository
+
+    @Autowired
+    private lateinit var applicationRepository: ApplicationRepository
+
+    @Autowired
+    private lateinit var stageRepository: StageRepository
+
+    @Autowired
+    private lateinit var scheduleRepository: ScheduleRepository
+
+    @Autowired
+    private lateinit var noteRepository: NoteRepository
+
+    @Autowired
+    private lateinit var applicationStatusHistoryRepository: ApplicationStatusHistoryRepository
+
+    @Autowired
+    private lateinit var stageStatusHistoryRepository: StageStatusHistoryRepository
+
+    @Autowired
     private lateinit var passwordEncoder: PasswordEncoder
 
     @BeforeEach
     fun setUp() {
+        scheduleRepository.deleteAll()
+        stageStatusHistoryRepository.deleteAll()
+        applicationStatusHistoryRepository.deleteAll()
+        stageRepository.deleteAll()
+        noteRepository.deleteAll()
+        applicationRepository.deleteAll()
+        companyRepository.deleteAll()
         userRepository.deleteAll()
     }
 
@@ -102,6 +137,7 @@ class AuthControllerTest {
         )
             .andExpect(status().isBadRequest)
             .andExpect(jsonPath("$.status").value(400))
+            .andExpect(jsonPath("$.code").value("DUPLICATE_RESOURCE"))
     }
 
     @Test
@@ -124,6 +160,7 @@ class AuthControllerTest {
         )
             .andExpect(status().isBadRequest)
             .andExpect(jsonPath("$.status").value(400))
+            .andExpect(jsonPath("$.code").value("INVALID_REQUEST"))
     }
 
     private fun createUser(email: String, rawPassword: String, name: String): User {

@@ -240,6 +240,18 @@ $env:DB_PASSWORD="1234"
 $env:JWT_SECRET="change-this-secret-key-for-local-environment-only"
 ```
 
+.env 形式の例:
+
+```dotenv
+DB_URL=jdbc:postgresql://localhost:5432/jobtracker
+DB_USERNAME=postgres
+DB_PASSWORD=1234
+JWT_SECRET=change-this-secret-key-for-local-environment-only
+JWT_ACCESS_TOKEN_EXPIRATION_SECONDS=3600
+JWT_TOKEN_TYPE=Bearer
+SERVER_PORT=8080
+```
+
 未指定の場合、`application-local.yaml` のデフォルト値が使用されます。  
 ただし、実運用を想定する場合は必ず明示的に設定してください。
 

@@ -1,51 +1,47 @@
-package com.hyunwoo.jobselectiontracker.stage.history.controller
+package com.hyunwoo.jobselectiontracker.stage.service
 
 import com.hyunwoo.jobselectiontracker.application.entity.Application
 import com.hyunwoo.jobselectiontracker.application.entity.ApplicationStatus
 import com.hyunwoo.jobselectiontracker.application.repository.ApplicationRepository
+import com.hyunwoo.jobselectiontracker.common.exception.InvalidRequestException
 import com.hyunwoo.jobselectiontracker.company.entity.Company
 import com.hyunwoo.jobselectiontracker.company.repository.CompanyRepository
+import com.hyunwoo.jobselectiontracker.stage.dto.UpdateStageRequest
 import com.hyunwoo.jobselectiontracker.stage.entity.Stage
 import com.hyunwoo.jobselectiontracker.stage.entity.StageStatus
 import com.hyunwoo.jobselectiontracker.stage.entity.StageType
-import com.hyunwoo.jobselectiontracker.stage.history.entity.StageStatusHistory
 import com.hyunwoo.jobselectiontracker.stage.history.repository.StageStatusHistoryRepository
 import com.hyunwoo.jobselectiontracker.stage.repository.StageRepository
 import com.hyunwoo.jobselectiontracker.user.entity.User
 import com.hyunwoo.jobselectiontracker.user.repository.UserRepository
-import java.time.LocalDateTime
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.security.test.context.support.WithMockUser
 import org.springframework.test.context.ActiveProfiles
-import org.springframework.test.web.servlet.MockMvc
-import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
-import org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath
-import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
 
 @SpringBootTest
-@AutoConfigureMockMvc
 @ActiveProfiles("test")
 @WithMockUser(username = "test@example.com")
-class StageStatusHistoryControllerTest {
+class StageServiceTest {
 
     @Autowired
-    private lateinit var mockMvc: MockMvc
-
-    @Autowired
-    private lateinit var companyRepository: CompanyRepository
-
-    @Autowired
-    private lateinit var applicationRepository: ApplicationRepository
+    private lateinit var stageService: StageService
 
     @Autowired
     private lateinit var stageRepository: StageRepository
 
     @Autowired
     private lateinit var stageStatusHistoryRepository: StageStatusHistoryRepository
+
+    @Autowired
+    private lateinit var applicationRepository: ApplicationRepository
+
+    @Autowired
+    private lateinit var companyRepository: CompanyRepository
 
     @Autowired
     private lateinit var userRepository: UserRepository
@@ -60,37 +56,37 @@ class StageStatusHistoryControllerTest {
     }
 
     @Test
-    fun `GET stage status histories returns histories in changedAt desc order`() {
-        val stage = createStage(status = StageStatus.COMPLETED)
-        stageStatusHistoryRepository.save(
-            StageStatusHistory(
-                stage = stage,
-                fromStatus = StageStatus.SCHEDULED,
-                toStatus = StageStatus.COMPLETED,
-                changedAt = LocalDateTime.of(2026, 4, 6, 5, 0, 0)
-            )
-        )
-        stageStatusHistoryRepository.save(
-            StageStatusHistory(
-                stage = stage,
-                fromStatus = StageStatus.COMPLETED,
-                toStatus = StageStatus.PASSED,
-                changedAt = LocalDateTime.of(2026, 4, 6, 6, 0, 0)
-            )
-        )
+    fun `invalid stage status transition throws exception`() {
+        val stage = createStage(status = StageStatus.PASSED)
 
-        mockMvc.perform(get("/stages/${stage.id}/status-histories"))
-            .andExpect(status().isOk)
-            .andExpect(jsonPath("$[0].toStatus").value("PASSED"))
-            .andExpect(jsonPath("$[1].toStatus").value("COMPLETED"))
+        val exception = assertThrows(InvalidRequestException::class.java) {
+            stageService.updateStage(
+                stage.id!!,
+                UpdateStageRequest(status = StageStatus.SCHEDULED)
+            )
+        }
+
+        assertEquals(
+            "選考ステージのステータスを PASSED から SCHEDULED へ変更することはできません。",
+            exception.message
+        )
     }
 
     @Test
-    fun `GET stage status histories with missing stage id returns not found`() {
-        mockMvc.perform(get("/stages/9999/status-histories"))
-            .andExpect(status().isNotFound)
-            .andExpect(jsonPath("$.status").value(404))
-            .andExpect(jsonPath("$.code").value("RESOURCE_NOT_FOUND"))
+    fun `valid stage status transition creates history`() {
+        val stage = createStage(status = StageStatus.COMPLETED)
+
+        val response = stageService.updateStage(
+            stage.id!!,
+            UpdateStageRequest(status = StageStatus.PASSED)
+        )
+
+        assertEquals(StageStatus.PASSED, response.status)
+
+        val histories = stageStatusHistoryRepository.findAllByStageIdOrderByChangedAtDesc(stage.id!!)
+        assertEquals(1, histories.size)
+        assertEquals(StageStatus.COMPLETED, histories[0].fromStatus)
+        assertEquals(StageStatus.PASSED, histories[0].toStatus)
     }
 
     private fun createStage(status: StageStatus): Stage {
@@ -101,10 +97,9 @@ class StageStatusHistoryControllerTest {
                 name = "OpenAI",
                 industry = "AI",
                 websiteUrl = "https://openai.com",
-                memo = "志望度高め"
+                memo = "Test company"
             )
         )
-
         val application = applicationRepository.save(
             Application(
                 user = user,
@@ -122,20 +117,19 @@ class StageStatusHistoryControllerTest {
                 application = application,
                 stageOrder = 1,
                 stageType = StageType.FIRST_INTERVIEW,
-                stageName = "一次面接",
+                stageName = "First interview",
                 status = status
             )
         )
     }
 
     private fun createUser(): User {
-        return userRepository.findByEmail("test@example.com")
-            ?: userRepository.save(
-                User(
-                    email = "test@example.com",
-                    password = "encoded-password",
-                    name = "テストユーザー"
-                )
+        return userRepository.save(
+            User(
+                email = "test@example.com",
+                password = "encoded-password",
+                name = "Test User"
             )
+        )
     }
 }
