@@ -3,7 +3,7 @@
 就職活動における企業、応募、選考ステージ、日程、メモを一元管理するためのアプリケーションです。  
 バックエンドは Kotlin / Spring Boot、フロントエンドは Next.js で構成しています。
 
-本リポジトリは、単純な CRUD 実装にとどまらず、認証、ユーザー単位のデータ分離、状態遷移制御、履歴管理、Flyway によるスキーマ管理、Docker による実行環境統一、GitHub Actions による CI まで含めて、バックエンド中心のポートフォリオとして整理しています。
+本リポジトリは、単純な CRUD 実装にとどまらず、認証、ユーザー単位のデータ分離、状態遷移制御、履歴管理、Flyway によるスキーマ管理、Docker による実行環境統一、GitHub Actions による CI、Actuator を用いた運用性向上まで含めて、バックエンド中心のポートフォリオとして整理しています。
 
 ---
 
@@ -25,6 +25,12 @@
   - ローカル統合実行構成
 - `.github/workflows/ci.yml`
   - GitHub Actions CI
+- `.github/workflows/deploy-ec2.yml`
+  - EC2 向けデプロイワークフロー
+- `deploy/ec2/`
+  - EC2 用デプロイ設定
+- `terraform/`
+  - AWS 用 Terraform 構成
 
 ---
 
@@ -37,10 +43,12 @@
 - Spring Web
 - Spring Security
 - Spring Data JPA
+- Spring Boot Actuator
 - PostgreSQL
 - H2 Database
 - Flyway
 - JJWT
+- Micrometer Prometheus Registry
 - Gradle Kotlin DSL
 
 ### フロントエンド
@@ -55,6 +63,9 @@
 - Docker
 - Docker Compose
 - GitHub Actions
+- AWS EC2
+- AWS ECR
+- Terraform
 
 ---
 
@@ -93,6 +104,22 @@
   - バックエンドテスト
   - フロントエンド lint / build
   - バックエンド / フロントエンド Docker イメージビルド
+
+### 運用性
+
+- Actuator の導入
+- `health`, `info`, `prometheus` エンドポイント公開
+- `X-Request-Id` 付きリクエストログ
+- Prometheus scrape を想定したメトリクス公開
+
+### AWS / IaC
+
+- EC2 + ECR を前提にしたデプロイワークフローの追加
+- Terraform による dev 環境用インフラ定義の追加
+
+注意:
+
+- AWS デプロイと Terraform はコードを追加済みですが、実アカウントでの apply / 本番適用までは未実施です。
 
 ---
 
@@ -157,6 +184,13 @@ Hibernate の `ddl-auto` に依存せず、スキーマ変更は Flyway migratio
   - 本番想定設定
 - `application-test.yaml`
   - テスト用設定
+
+### 8. 運用性の確保
+
+- Actuator によるヘルスチェック
+- Prometheus エンドポイントによるメトリクス公開
+- リクエスト単位のログ出力
+- `X-Request-Id` によるリクエスト追跡
 
 ---
 
@@ -225,6 +259,12 @@ ERD:
 - `GET /applications/{applicationId}/notes`
 - `PATCH /notes/{id}`
 - `DELETE /notes/{id}`
+
+### Actuator
+
+- `GET /actuator/health`
+- `GET /actuator/info`
+- `GET /actuator/prometheus`
 
 ---
 
@@ -377,6 +417,39 @@ GitHub Actions では以下を自動実行します。
 
 ---
 
+## AWS デプロイ準備
+
+### EC2 デプロイワークフロー
+
+- `.github/workflows/deploy-ec2.yml`
+
+### EC2 用 compose
+
+- `deploy/ec2/docker-compose.prod.yml`
+- `deploy/ec2/.env.example`
+
+### Terraform
+
+- `terraform/envs/dev`
+- `terraform/modules/app_platform`
+
+Terraform では以下を定義しています。
+
+- ECR リポジトリ
+  - backend
+  - frontend
+- EC2
+- Security Group
+- IAM Role / Instance Profile
+- Docker / Docker Compose を導入する `user_data`
+
+注意:
+
+- AWS アカウント上での実行と検証はまだ行っていません。
+- そのため、現時点では「AWS 適用コードを用意した段階」です。
+
+---
+
 ## テスト
 
 ### バックエンド
@@ -412,13 +485,16 @@ npm run build
 - Dockerfile はバックエンド / フロントエンドともに作成済み
 - `docker-compose.yml` によるローカル統合実行は作成済み
 - GitHub Actions CI は作成済み
-- AWS デプロイ / Terraform / モニタリングは未着手
+- Actuator / ログ / モニタリングの基本構成は追加済み
+- AWS デプロイ用ワークフローと Terraform は追加済み
+- AWS 実環境への適用と検証は未実施
 
 ---
 
 ## 今後の予定
 
-- AWS デプロイ
-- Terraform 導入
-- Actuator / ログ / モニタリング追加
-- 最終 README、アーキテクチャ図、トラブルシューティング整理
+- AWS 実環境への適用
+- Terraform `plan / apply` 検証
+- アーキテクチャ図の追加
+- トラブルシューティング整理
+- README の最終 polishing

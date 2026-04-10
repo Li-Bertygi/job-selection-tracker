@@ -1,0 +1,8 @@
+aws_region       = "ap-northeast-1"
+project_name     = "job-selection-tracker"
+environment      = "dev"
+instance_type    = "t3.small"
+ssh_allowed_cidr = "0.0.0.0/0"
+
+# Optional. If you want to connect with SSH, paste your public key content.
+ssh_public_key = "ssh-ed25519 AAAA..."
