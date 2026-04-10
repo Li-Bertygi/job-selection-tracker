@@ -531,7 +531,7 @@ npm run build
 - GitHub Actions CI は作成済み
 - Actuator / ログ / モニタリングの基本構成は追加済み
 - AWS デプロイ用ワークフローと Terraform は追加済み
-- AWS 実環境への適用と検証は未実施
+- アーキテクチャ図の追加済み
 
 ---
 
