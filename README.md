@@ -213,6 +213,50 @@ ERD:
 
 ---
 
+## アーキテクチャ
+
+### システム構成図
+
+```mermaid
+flowchart LR
+    User[User Browser]
+    Frontend[Next.js Frontend]
+    Backend[Spring Boot Backend]
+    Postgres[(PostgreSQL)]
+    Actuator[Actuator / Prometheus]
+
+    User -->|HTTP 3000| Frontend
+    Frontend -->|REST API 8080| Backend
+    Backend -->|JPA / Flyway| Postgres
+    Backend -->|health / info / metrics| Actuator
+```
+
+### デプロイフロー図
+
+```mermaid
+flowchart LR
+    Dev[Developer]
+    GitHub[GitHub Repository]
+    Actions[GitHub Actions]
+    ECR[(Amazon ECR)]
+    EC2[Amazon EC2]
+    Compose[Docker Compose]
+
+    Dev -->|push| GitHub
+    GitHub -->|trigger| Actions
+    Actions -->|test / build| Actions
+    Actions -->|push images| ECR
+    Actions -->|ssh deploy| EC2
+    EC2 -->|docker compose pull| ECR
+    EC2 -->|docker compose up -d| Compose
+```
+
+デプロイ構成とシステム全体の詳細な流れは以下に整理しています。
+
+- [Architecture Diagram](./docs/architecture.md)
+
+---
+
 ## API 一覧
 
 ### Auth
