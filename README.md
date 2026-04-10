@@ -3,7 +3,7 @@
 就職活動における企業、応募、選考ステージ、日程、メモを一元管理するためのアプリケーションです。  
 バックエンドは Kotlin / Spring Boot、フロントエンドは Next.js で構成しています。
 
-本リポジトリは、単純な CRUD 実装にとどまらず、認証、ユーザー単位のデータ分離、状態遷移制御、履歴管理、Flyway によるスキーマ管理まで含めて、バックエンド中心のポートフォリオとして整理しています。
+本リポジトリは、単純な CRUD 実装にとどまらず、認証、ユーザー単位のデータ分離、状態遷移制御、履歴管理、Flyway によるスキーマ管理、Docker による実行環境統一、GitHub Actions による CI まで含めて、バックエンド中心のポートフォリオとして整理しています。
 
 ---
 
@@ -17,6 +17,14 @@
   - Flyway マイグレーション
 - `frontend/`
   - Next.js フロントエンド
+- `Dockerfile`
+  - バックエンド用 Dockerfile
+- `frontend/Dockerfile`
+  - フロントエンド用 Dockerfile
+- `docker-compose.yml`
+  - ローカル統合実行構成
+- `.github/workflows/ci.yml`
+  - GitHub Actions CI
 
 ---
 
@@ -42,6 +50,12 @@
 - TypeScript
 - Tailwind CSS 4
 
+### DevOps / 開発環境
+
+- Docker
+- Docker Compose
+- GitHub Actions
+
 ---
 
 ## 現在の実装範囲
@@ -66,9 +80,19 @@
 - 応募作成画面
 - 応募詳細画面
 - 会社登録画面
+- 応募一覧上部の簡易ダッシュボード
 - 応募詳細画面でのステージ / 日程 / メモの追加
 - 応募詳細画面でのステージ / 日程 / メモの修正 / 削除
-- 応募一覧上部の簡易ダッシュボード
+
+### 開発基盤
+
+- バックエンド Dockerfile
+- フロントエンド Dockerfile
+- `docker-compose.yml` による `frontend + backend + postgres` の統合起動
+- GitHub Actions CI
+  - バックエンドテスト
+  - フロントエンド lint / build
+  - バックエンド / フロントエンド Docker イメージビルド
 
 ---
 
@@ -122,6 +146,17 @@ Hibernate の `ddl-auto` に依存せず、スキーマ変更は Flyway migratio
 ### 6. 共通例外応答
 
 エラー応答は `status`, `error`, `code`, `message`, `timestamp`, `errors` 形式に統一しています。
+
+### 7. 環境分離
+
+- `application.yaml`
+  - 共通設定
+- `application-local.yaml`
+  - ローカル開発用設定
+- `application-prod.yaml`
+  - 本番想定設定
+- `application-test.yaml`
+  - テスト用設定
 
 ---
 
@@ -201,7 +236,28 @@ ERD:
 - Node.js 20 以上
 - Docker
 
-### 1. PostgreSQL を起動
+### 1. Docker Compose で起動
+
+もっとも簡単な方法は以下です。
+
+```powershell
+docker compose up --build
+```
+
+ブラウザ:
+
+- フロントエンド: `http://localhost:3000`
+- バックエンド: `http://localhost:8080`
+
+停止:
+
+```powershell
+docker compose down
+```
+
+### 2. バックエンドとフロントエンドを個別に起動する場合
+
+#### PostgreSQL を起動
 
 ```powershell
 docker run --name postgres-db `
@@ -218,7 +274,7 @@ docker run --name postgres-db `
 docker start postgres-db
 ```
 
-### 2. バックエンド環境変数を設定
+#### バックエンド環境変数を設定
 
 ```powershell
 $env:DB_URL="jdbc:postgresql://localhost:5432/jobtracker"
@@ -240,24 +296,19 @@ SERVER_PORT=8080
 CORS_ALLOWED_ORIGINS=http://localhost:3000
 ```
 
-### 3. バックエンド起動
+#### バックエンド起動
 
 ```powershell
 ./gradlew bootRun
 ```
 
-### 4. フロントエンド起動
+#### フロントエンド起動
 
 ```powershell
 cd frontend
 npm install
 npm run dev
 ```
-
-ブラウザでは以下を開きます。
-
-- バックエンド: `http://localhost:8080`
-- フロントエンド: `http://localhost:3000`
 
 ---
 
@@ -294,6 +345,38 @@ curl.exe --% -X POST http://localhost:8080/auth/signup -H "Content-Type: applica
 
 ---
 
+## Docker
+
+### バックエンドイメージ
+
+```powershell
+docker build -t job-selection-tracker-backend:test .
+```
+
+### フロントエンドイメージ
+
+```powershell
+docker build -t job-selection-tracker-frontend:test ./frontend
+```
+
+---
+
+## CI
+
+GitHub Actions では以下を自動実行します。
+
+- バックエンドテスト
+- フロントエンド lint
+- フロントエンド build
+- バックエンド Docker イメージビルド
+- フロントエンド Docker イメージビルド
+
+ワークフロー:
+
+- `.github/workflows/ci.yml`
+
+---
+
 ## テスト
 
 ### バックエンド
@@ -325,17 +408,16 @@ npm run build
 ## 現在の到達点
 
 - バックエンド整備は完了
-- フロント実装も完了
-- Docker / CI / デプロイ / IaC / モニタリングは未着手
+- フロント実装は完了
+- Dockerfile はバックエンド / フロントエンドともに作成済み
+- `docker-compose.yml` によるローカル統合実行は作成済み
+- GitHub Actions CI は作成済み
+- AWS デプロイ / Terraform / モニタリングは未着手
 
 ---
 
 ## 今後の予定
 
-- Dockerfile
-- docker-compose
-- GitHub Actions CI
-- バックエンド / フロントエンドのコンテナイメージ化
 - AWS デプロイ
 - Terraform 導入
 - Actuator / ログ / モニタリング追加

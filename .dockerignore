@@ -1,0 +1,9 @@
+.git
+.gradle
+.idea
+build
+frontend
+*.iml
+README.md
+DB.png
+job-selection-tracker.iml
