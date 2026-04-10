@@ -539,6 +539,5 @@ npm run build
 
 - AWS 実環境への適用
 - Terraform `plan / apply` 検証
-- アーキテクチャ図の追加
 - トラブルシューティング整理
 - README の最終 polishing
