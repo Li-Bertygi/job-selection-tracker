@@ -3,7 +3,7 @@
 就職活動における企業、応募、選考ステージ、日程、メモを一元管理するためのアプリケーションです。  
 バックエンドは Kotlin / Spring Boot、フロントエンドは Next.js で構成しています。
 
-本リポジトリは、単純な CRUD 実装にとどまらず、認証、ユーザー単位のデータ分離、状態遷移制御、履歴管理、Flyway によるスキーマ管理、Docker による実行環境統一、GitHub Actions による CI、Actuator を用いた運用性向上まで含めて、バックエンド中心のポートフォリオとして整理しています。
+本リポジトリは、単純な CRUD 実装にとどまらず、認証、ユーザー単位のデータ分離、状態遷移制御、履歴管理、Flyway によるスキーマ管理、Docker による実行環境統一、GitHub Actions による CI/CD、AWS EC2 へのデプロイ、Actuator を用いた運用性向上まで含めて、バックエンド中心のポートフォリオとして整理しています。
 
 ---
 
@@ -31,6 +31,8 @@
   - EC2 用デプロイ設定
 - `terraform/`
   - AWS 用 Terraform 構成
+- `docs/`
+  - アーキテクチャ図、トラブルシューティング
 
 ---
 
@@ -114,12 +116,15 @@
 
 ### AWS / IaC
 
-- EC2 + ECR を前提にしたデプロイワークフローの追加
-- Terraform による dev 環境用インフラ定義の追加
+- EC2 + ECR を前提にしたデプロイワークフロー
+- GitHub Actions による ECR push と EC2 デプロイ
+- Terraform による dev 環境用インフラ定義
+- AWS EC2 上での実デプロイ検証
 
 注意:
 
-- AWS デプロイと Terraform はコードを追加済みですが、実アカウントでの apply / 本番適用までは未実施です。
+- AWS EC2 への実デプロイは検証済みです。
+- Terraform コードは追加済みですが、既存の手動作成リソースとの衝突を避けるため、`plan / apply` の実行検証は今後の作業として残しています。
 
 ---
 
@@ -251,9 +256,10 @@ flowchart LR
     EC2 -->|docker compose up -d| Compose
 ```
 
-デプロイ構成とシステム全体の詳細な流れは以下に整理しています。
+デプロイ構成、システム全体の詳細、デプロイ時の問題対応は以下に整理しています。
 
 - [Architecture Diagram](./docs/architecture.md)
+- [Troubleshooting](./docs/troubleshooting.md)
 
 ---
 
@@ -461,7 +467,7 @@ GitHub Actions では以下を自動実行します。
 
 ---
 
-## AWS デプロイ準備
+## AWS デプロイ
 
 ### EC2 デプロイワークフロー
 
@@ -472,10 +478,47 @@ GitHub Actions では以下を自動実行します。
 - `deploy/ec2/docker-compose.prod.yml`
 - `deploy/ec2/.env.example`
 
-### Terraform
+### GitHub Secrets
 
-- `terraform/envs/dev`
-- `terraform/modules/app_platform`
+主に以下の Secrets を使用します。
+
+- `AWS_ACCESS_KEY_ID`
+- `AWS_SECRET_ACCESS_KEY`
+- `AWS_REGION`
+- `EC2_HOST`
+- `EC2_USERNAME`
+- `EC2_SSH_PRIVATE_KEY`
+- `NEXT_PUBLIC_API_BASE_URL`
+- `POSTGRES_USER`
+- `POSTGRES_PASSWORD`
+- `POSTGRES_DB`
+- `JWT_SECRET`
+- `JWT_ACCESS_TOKEN_EXPIRATION_SECONDS`
+- `JWT_TOKEN_TYPE`
+- `CORS_ALLOWED_ORIGINS`
+
+### デプロイ確認
+
+AWS EC2 上で以下を確認済みです。
+
+- フロントエンド: `http://<EC2_PUBLIC_IP>:3000`
+- バックエンドヘルスチェック: `http://<EC2_PUBLIC_IP>:8080/actuator/health`
+
+ヘルスチェックは以下のレスポンスを返します。
+
+```json
+{
+  "status": "UP",
+  "groups": [
+    "liveness",
+    "readiness"
+  ]
+}
+```
+
+---
+
+## Terraform
 
 Terraform では以下を定義しています。
 
@@ -487,10 +530,15 @@ Terraform では以下を定義しています。
 - IAM Role / Instance Profile
 - Docker / Docker Compose を導入する `user_data`
 
+対象ファイル:
+
+- `terraform/envs/dev`
+- `terraform/modules/app_platform`
+
 注意:
 
-- AWS アカウント上での実行と検証はまだ行っていません。
-- そのため、現時点では「AWS 適用コードを用意した段階」です。
+- Terraform コードは追加済みです。
+- 現在の AWS リソースは一部手動で作成しているため、既存リソースとの衝突を避けるために `plan / apply` 検証は今後の作業として残しています。
 
 ---
 
@@ -529,15 +577,18 @@ npm run build
 - Dockerfile はバックエンド / フロントエンドともに作成済み
 - `docker-compose.yml` によるローカル統合実行は作成済み
 - GitHub Actions CI は作成済み
+- GitHub Actions による EC2 デプロイワークフローは作成済み
 - Actuator / ログ / モニタリングの基本構成は追加済み
-- AWS デプロイ用ワークフローと Terraform は追加済み
-- アーキテクチャ図の追加済み
+- AWS EC2 への実デプロイ検証は完了
+- アーキテクチャ図は追加済み
+- トラブルシューティング文書は追加済み
 
 ---
 
 ## 今後の予定
 
-- AWS 実環境への適用
 - Terraform `plan / apply` 検証
-- トラブルシューティング整理
+- SSH デプロイから SSM Run Command ベースのデプロイへの改善
+- ALB / HTTPS 対応
+- RDS への DB 分離
 - README の最終 polishing
