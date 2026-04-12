@@ -3,7 +3,7 @@
 就職活動における企業、応募、選考ステージ、日程、メモを一元管理するためのアプリケーションです。  
 バックエンドは Kotlin / Spring Boot、フロントエンドは Next.js で構成しています。
 
-本リポジトリは、単純な CRUD 実装にとどまらず、認証、ユーザー単位のデータ分離、状態遷移制御、履歴管理、Flyway によるスキーマ管理、Docker による実行環境統一、GitHub Actions による CI/CD、AWS EC2 へのデプロイ、Actuator を用いた運用性向上まで含めて、バックエンド中心のポートフォリオとして整理しています。
+本リポジトリは、単純な CRUD 実装にとどまらず、認証、ユーザー単位のデータ分離、状態遷移制御、履歴管理、Flyway によるスキーマ管理、Docker による実行環境統一、GitHub Actions による CI/CD、AWS EC2 へのデプロイ、Terraform による IaC 検証、Actuator を用いた運用性向上まで含めて、バックエンド中心のポートフォリオとして整理しています。
 
 ---
 
@@ -120,11 +120,7 @@
 - GitHub Actions による ECR push と EC2 デプロイ
 - Terraform による dev 環境用インフラ定義
 - AWS EC2 上での実デプロイ検証
-
-注意:
-
-- AWS EC2 への実デプロイは検証済みです。
-- Terraform コードは追加済みですが、既存の手動作成リソースとの衝突を避けるため、`plan / apply` の実行検証は今後の作業として残しています。
+- Terraform `plan / apply / destroy` 検証
 
 ---
 
@@ -535,10 +531,14 @@ Terraform では以下を定義しています。
 - `terraform/envs/dev`
 - `terraform/modules/app_platform`
 
-注意:
+検証内容:
 
-- Terraform コードは追加済みです。
-- 現在の AWS リソースは一部手動で作成しているため、既存リソースとの衝突を避けるために `plan / apply` 検証は今後の作業として残しています。
+- `terraform plan`
+- `terraform apply`
+- `terraform destroy`
+
+検証時は既存の手動デプロイ済みリソースと衝突しないように、`job-selection-tracker-tf-*` の検証用リソース名を使用しました。  
+検証後、作成した Terraform 管理リソースは `terraform destroy` で削除済みです。
 
 ---
 
@@ -580,6 +580,7 @@ npm run build
 - GitHub Actions による EC2 デプロイワークフローは作成済み
 - Actuator / ログ / モニタリングの基本構成は追加済み
 - AWS EC2 への実デプロイ検証は完了
+- Terraform `plan / apply / destroy` 検証は完了
 - アーキテクチャ図は追加済み
 - トラブルシューティング文書は追加済み
 
@@ -587,7 +588,6 @@ npm run build
 
 ## 今後の予定
 
-- Terraform `plan / apply` 検証
 - SSH デプロイから SSM Run Command ベースのデプロイへの改善
 - ALB / HTTPS 対応
 - RDS への DB 分離

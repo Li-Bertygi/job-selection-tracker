@@ -1,6 +1,6 @@
 # Troubleshooting
 
-AWS EC2 への初回デプロイ検証時に発生した問題と対応を整理します。  
+AWS EC2 への初回デプロイ検証および Terraform 検証時に発生した問題と対応を整理します。  
 同じ構成を再現する際に詰まりやすいポイントを残すことを目的としています。
 
 ---
@@ -212,17 +212,101 @@ Secret: ap-northeast-1
 
 ---
 
-## 7. 確認済みの正常状態
+## 7. Terraform が AWS credentials を見つけられない
 
-### フロントエンド
+### 症状
+
+ローカルで `terraform plan` または `terraform destroy` を実行した際、以下のエラーが発生しました。
+
+```text
+No valid credential sources found
+```
+
+### 原因
+
+GitHub Secrets には AWS credentials を登録していましたが、ローカル PowerShell セッションには Terraform 用の AWS 環境変数が設定されていませんでした。
+
+### 対応
+
+同じ PowerShell セッションで以下を設定してから Terraform を実行しました。
+
+```powershell
+$env:AWS_ACCESS_KEY_ID="..."
+$env:AWS_SECRET_ACCESS_KEY="..."
+$env:AWS_REGION="ap-northeast-1"
+```
+
+PowerShell セッションを閉じると環境変数は消えるため、別セッションで実行する場合は再設定が必要です。
+
+---
+
+## 8. Terraform 実行時に `ssm:GetParameter` 権限不足になる
+
+### 症状
+
+Terraform が Amazon Linux 2023 の AMI ID を取得する際、以下のエラーが発生しました。
+
+```text
+not authorized to perform: ssm:GetParameter
+```
+
+### 原因
+
+Terraform コードで SSM Parameter Store から Amazon Linux 2023 AMI を取得していますが、実行ユーザーに SSM Parameter 参照権限がありませんでした。
+
+対象:
+
+```hcl
+data "aws_ssm_parameter" "al2023_ami"
+```
+
+### 対応
+
+Terraform 実行ユーザーに以下の権限を追加しました。
+
+```text
+AmazonSSMReadOnlyAccess
+```
+
+---
+
+## 9. Terraform 実行時に `iam:CreateRole` 権限不足になる
+
+### 症状
+
+`terraform apply` 実行時、IAM Role 作成で以下のエラーが発生しました。
+
+```text
+not authorized to perform: iam:CreateRole
+```
+
+### 原因
+
+Terraform が EC2 用 IAM Role / Instance Profile / Policy Attachment を作成する構成でしたが、実行ユーザーに IAM リソース作成権限がありませんでした。
+
+### 対応
+
+Terraform 検証中のみ、実行ユーザーに一時的に以下を付与しました。
+
+```text
+IAMFullAccess
+```
+
+`terraform apply` と `terraform destroy` の完了後、この強い権限は削除対象としました。
+
+---
+
+## 10. 確認済みの正常状態
+
+### AWS EC2 デプロイ
+
+フロントエンド:
 
 ```text
 http://<EC2_PUBLIC_IP>:3000
 ```
 
-ブラウザからアクセスできることを確認しました。
-
-### バックエンドヘルスチェック
+バックエンドヘルスチェック:
 
 ```text
 http://<EC2_PUBLIC_IP>:8080/actuator/health
@@ -239,3 +323,15 @@ http://<EC2_PUBLIC_IP>:8080/actuator/health
   ]
 }
 ```
+
+### Terraform 検証
+
+以下を確認しました。
+
+```text
+terraform plan
+terraform apply
+terraform destroy
+```
+
+検証用リソースは `job-selection-tracker-tf-*` の名前で作成し、検証後に `terraform destroy` で削除しました。
