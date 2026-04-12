@@ -1,6 +1,7 @@
 package com.hyunwoo.jobselectiontracker.config
 
 import com.hyunwoo.jobselectiontracker.auth.jwt.JwtAuthenticationFilter
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.http.HttpStatus
@@ -17,7 +18,9 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 @EnableWebSecurity
 class SecurityConfig(
     /** Bearer token を検証して SecurityContext に認証情報を設定するフィルタ。 */
-    private val jwtAuthenticationFilter: JwtAuthenticationFilter
+    private val jwtAuthenticationFilter: JwtAuthenticationFilter,
+    @Value("\${app.security.public-actuator-paths:/actuator/health,/actuator/health/**}")
+    private val publicActuatorPaths: Array<String>
 ) {
 
     /**
@@ -25,6 +28,11 @@ class SecurityConfig(
      */
     @Bean
     fun securityFilterChain(http: HttpSecurity): SecurityFilterChain {
+        val publicPaths = arrayOf(
+            "/auth/signup",
+            "/auth/login"
+        ) + publicActuatorPaths
+
         http
             .csrf { it.disable() }
             .cors { }
@@ -42,14 +50,7 @@ class SecurityConfig(
             }
             .authorizeHttpRequests { auth ->
                 auth
-                    .requestMatchers(
-                        "/auth/signup",
-                        "/auth/login",
-                        "/actuator/health",
-                        "/actuator/health/**",
-                        "/actuator/info",
-                        "/actuator/prometheus"
-                    ).permitAll()
+                    .requestMatchers(*publicPaths).permitAll()
                     .anyRequest().authenticated()
             }
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter::class.java)

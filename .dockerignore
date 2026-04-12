@@ -5,5 +5,5 @@ build
 frontend
 *.iml
 README.md
-DB.png
+docs/image/ERD.png
 job-selection-tracker.iml

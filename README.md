@@ -5,6 +5,14 @@
 
 本リポジトリは、単純な CRUD 実装にとどまらず、認証、ユーザー単位のデータ分離、状態遷移制御、履歴管理、Flyway によるスキーマ管理、Docker による実行環境統一、GitHub Actions による CI/CD、AWS EC2 へのデプロイ、Terraform による IaC 検証、Actuator を用いた運用性向上まで含めて、バックエンド中心のポートフォリオとして整理しています。
 
+## このプロジェクトで示せること
+
+- Kotlin / Spring Boot による REST API 設計と、認証・認可を含むバックエンド実装
+- ユーザー単位のデータ分離、状態遷移制御、履歴管理などの業務ルール実装
+- Flyway と DB 制約を用いたスキーマ管理、データ整合性の担保
+- Docker / Docker Compose によるローカル実行環境とデプロイ環境の標準化
+- GitHub Actions、Amazon ECR、EC2、Terraform を用いた CI/CD と IaC の検証
+
 ---
 
 ## 構成
@@ -32,7 +40,7 @@
 - `terraform/`
   - AWS 用 Terraform 構成
 - `docs/`
-  - アーキテクチャ図、トラブルシューティング
+  - API 仕様、アーキテクチャ図、検証結果、トラブルシューティング
 
 ---
 
@@ -80,6 +88,7 @@
 - 現在のログインユーザー取得
 - 企業の作成 / 一覧 / 詳細 / 更新 / 削除
 - 応募の作成 / 一覧 / 詳細 / 更新 / 削除
+- 応募一覧のステータス絞り込み / アーカイブ絞り込み / 会社名・職種検索 / ページング
 - 応募ステータス履歴取得
 - 選考ステージの作成 / 一覧 / 更新 / 削除
 - ステージステータス履歴取得
@@ -94,6 +103,7 @@
 - 応募詳細画面
 - 会社登録画面
 - 応募一覧上部の簡易ダッシュボード
+- 応募一覧画面での検索 / 絞り込み / ページ移動
 - 応募詳細画面でのステージ / 日程 / メモの追加
 - 応募詳細画面でのステージ / 日程 / メモの修正 / 削除
 
@@ -110,7 +120,8 @@
 ### 運用性
 
 - Actuator の導入
-- `health`, `info`, `prometheus` エンドポイント公開
+- ローカルでは `health`, `info`, `prometheus` を公開
+- 本番想定環境では外部公開する Actuator endpoint を `health` に制限
 - `X-Request-Id` 付きリクエストログ
 - Prometheus scrape を想定したメトリクス公開
 
@@ -210,7 +221,7 @@ Hibernate の `ddl-auto` に依存せず、スキーマ変更は Flyway migratio
 
 ERD:
 
-![ERD](./DB.png)
+![ERD](docs/image/ERD.png)
 
 ---
 
@@ -254,8 +265,68 @@ flowchart LR
 
 デプロイ構成、システム全体の詳細、デプロイ時の問題対応は以下に整理しています。
 
+- [API Reference](./docs/api.md)
 - [Architecture Diagram](./docs/architecture.md)
+- [Verification](./docs/verification.md)
 - [Troubleshooting](./docs/troubleshooting.md)
+
+---
+
+## 実行・検証結果
+
+ローカル実行、CI、EC2 デプロイ、Terraform による IaC 検証まで確認しています。
+詳細なログと追加スクリーンショットは [Verification](./docs/verification.md) に整理しています。
+
+### ローカル実行
+
+Docker Compose により `frontend + backend + postgres` を起動し、フロントエンド画面表示とバックエンドヘルスチェックを確認しました。
+
+- フロントエンド: `http://localhost:3000`
+- バックエンドヘルスチェック: `http://localhost:8080/actuator/health`
+
+![Local Frontend](./docs/image/local_frontend.png)
+
+ヘルスチェック:
+
+```json
+{
+  "status": "UP",
+  "groups": [
+    "liveness",
+    "readiness"
+  ]
+}
+```
+
+### GitHub Actions CI
+
+`ci.yml` により、バックエンドテスト、フロントエンド lint / build、Docker イメージビルドがすべて成功することを確認しました。
+
+![GitHub Actions CI](./docs/image/github_actions_ci_summary.png)
+
+### AWS EC2 デプロイ
+
+`deploy-ec2.yml` を手動実行し、Amazon ECR への Docker イメージ push と EC2 上での Docker Compose デプロイが成功することを確認しました。
+
+![GitHub Actions Deploy](./docs/image/github_actions_deploy_summary.png)
+
+EC2 上のフロントエンド:
+
+![EC2 Frontend](./docs/image/ec2_frontend.png)
+
+EC2 上でもバックエンドヘルスチェックが `UP` を返すことを確認しています。
+
+### Terraform
+
+`terraform/envs/dev` で `terraform plan / apply / destroy` を実行し、dev 環境向け AWS リソースの作成と削除を確認しました。
+
+検証した主なリソース:
+
+- ECR repository
+- EC2 instance
+- Security Group
+- IAM Role / Instance Profile
+- IAM Role Policy Attachment
 
 ---
 
@@ -279,6 +350,7 @@ flowchart LR
 
 - `POST /applications`
 - `GET /applications`
+  - `status`, `isArchived`, `keyword`, `page`, `size` による絞り込み・検索・ページングに対応
 - `GET /applications/{id}`
 - `PATCH /applications/{id}`
 - `DELETE /applications/{id}`
@@ -309,8 +381,8 @@ flowchart LR
 ### Actuator
 
 - `GET /actuator/health`
-- `GET /actuator/info`
-- `GET /actuator/prometheus`
+- `GET /actuator/info` local profile
+- `GET /actuator/prometheus` local profile
 
 ---
 
@@ -575,13 +647,14 @@ npm run build
 - バックエンド整備は完了
 - フロント実装は完了
 - Dockerfile はバックエンド / フロントエンドともに作成済み
-- `docker-compose.yml` によるローカル統合実行は作成済み
-- GitHub Actions CI は作成済み
-- GitHub Actions による EC2 デプロイワークフローは作成済み
+- `docker-compose.yml` によるローカル統合実行は検証済み
+- GitHub Actions CI は検証済み
+- GitHub Actions による EC2 デプロイワークフローは検証済み
 - Actuator / ログ / モニタリングの基本構成は追加済み
 - AWS EC2 への実デプロイ検証は完了
 - Terraform `plan / apply / destroy` 検証は完了
 - アーキテクチャ図は追加済み
+- 検証結果ドキュメントは追加済み
 - トラブルシューティング文書は追加済み
 
 ---
@@ -591,4 +664,5 @@ npm run build
 - SSH デプロイから SSM Run Command ベースのデプロイへの改善
 - ALB / HTTPS 対応
 - RDS への DB 分離
-- README の最終 polishing
+- GitHub Actions の AWS 認証を access key 方式から OIDC ベースへ改善
+- Terraform state の remote backend 化

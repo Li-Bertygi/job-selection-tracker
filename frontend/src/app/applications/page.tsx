@@ -1,11 +1,28 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { AppShell } from "@/components/app-shell";
 import { ApplicationStatusBadge } from "@/components/application-status-badge";
 import { RequireAuth } from "@/components/require-auth";
-import { ApiError, type ApplicationResponse, getApplications } from "@/lib/api";
+import {
+  ApiError,
+  type ApplicationResponse,
+  type ApplicationStatus,
+  getApplications,
+} from "@/lib/api";
+
+const applicationStatuses: ApplicationStatus[] = [
+  "NOT_STARTED",
+  "APPLICATION",
+  "INFO_SESSION",
+  "DOCUMENT_SCREENING",
+  "TEST",
+  "CASUAL_MEETING",
+  "INTERVIEW",
+  "OFFERED",
+  "REJECTED",
+];
 
 function formatDate(date: string | null) {
   if (!date) {
@@ -48,14 +65,33 @@ function ApplicationsScreen({
   tokenType: string;
 }) {
   const [applications, setApplications] = useState<ApplicationResponse[]>([]);
+  const [statusFilter, setStatusFilter] = useState<ApplicationStatus | "">("");
+  const [archiveFilter, setArchiveFilter] = useState<"active" | "archived" | "all">("active");
+  const [keywordInput, setKeywordInput] = useState("");
+  const [keyword, setKeyword] = useState("");
+  const [page, setPage] = useState(0);
+  const [totalElements, setTotalElements] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     async function loadApplications() {
       try {
-        const response = await getApplications(accessToken, tokenType);
-        setApplications(response);
+        setIsLoading(true);
+        setErrorMessage(null);
+
+        const response = await getApplications(accessToken, tokenType, {
+          status: statusFilter || undefined,
+          isArchived:
+            archiveFilter === "all" ? undefined : archiveFilter === "archived",
+          keyword,
+          page,
+          size: 10,
+        });
+        setApplications(response.content);
+        setTotalElements(response.totalElements);
+        setTotalPages(response.totalPages);
       } catch (error) {
         if (error instanceof ApiError) {
           setErrorMessage(error.message);
@@ -69,9 +105,27 @@ function ApplicationsScreen({
     }
 
     void loadApplications();
-  }, [accessToken, tokenType]);
+  }, [accessToken, tokenType, statusFilter, archiveFilter, keyword, page]);
 
-  const activeApplications = applications.filter((application) => !application.isArchived);
+  function handleSearchSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setPage(0);
+    setKeyword(keywordInput.trim());
+  }
+
+  function handleStatusChange(value: string) {
+    setPage(0);
+    setStatusFilter(value as ApplicationStatus | "");
+  }
+
+  function handleArchiveChange(value: "active" | "archived" | "all") {
+    setPage(0);
+    setArchiveFilter(value);
+  }
+
+  const activeApplications = applications.filter(
+    (application) => !application.isArchived
+  );
   const offeredCount = applications.filter((application) => application.status === "OFFERED").length;
   const interviewCount = applications.filter((application) => application.status === "INTERVIEW").length;
 
@@ -116,6 +170,47 @@ function ApplicationsScreen({
             応募を追加
           </Link>
         </div>
+
+        <form
+          onSubmit={handleSearchSubmit}
+          className="mt-6 grid gap-3 md:grid-cols-[1fr_180px_160px_auto]"
+        >
+          <input
+            value={keywordInput}
+            onChange={(event) => setKeywordInput(event.target.value)}
+            placeholder="会社名・職種で検索"
+            className="h-11 rounded-lg border border-[var(--line)] bg-white px-4 text-sm text-[var(--ink-strong)] outline-none transition focus:border-[var(--accent)]"
+          />
+          <select
+            value={statusFilter}
+            onChange={(event) => handleStatusChange(event.target.value)}
+            className="h-11 rounded-lg border border-[var(--line)] bg-white px-3 text-sm text-[var(--ink-strong)] outline-none transition focus:border-[var(--accent)]"
+          >
+            <option value="">すべてのステータス</option>
+            {applicationStatuses.map((status) => (
+              <option key={status} value={status}>
+                {status}
+              </option>
+            ))}
+          </select>
+          <select
+            value={archiveFilter}
+            onChange={(event) =>
+              handleArchiveChange(event.target.value as "active" | "archived" | "all")
+            }
+            className="h-11 rounded-lg border border-[var(--line)] bg-white px-3 text-sm text-[var(--ink-strong)] outline-none transition focus:border-[var(--accent)]"
+          >
+            <option value="active">アクティブ</option>
+            <option value="archived">アーカイブ</option>
+            <option value="all">すべて</option>
+          </select>
+          <button
+            type="submit"
+            className="h-11 rounded-lg bg-[var(--ink-strong)] px-5 text-sm font-semibold text-white transition hover:opacity-90"
+          >
+            検索
+          </button>
+        </form>
 
         {isLoading ? (
           <div className="mt-6 rounded-[1.5rem] border border-dashed border-[var(--line)] bg-white px-5 py-12 text-center text-sm text-[var(--ink-soft)]">
@@ -194,6 +289,32 @@ function ApplicationsScreen({
                 </div>
               </Link>
             ))}
+          </div>
+        ) : null}
+
+        {!isLoading && !errorMessage && totalElements > 0 ? (
+          <div className="mt-6 flex flex-col gap-3 text-sm text-[var(--ink-soft)] md:flex-row md:items-center md:justify-between">
+            <p>
+              全{totalElements}件中 {page + 1} / {Math.max(totalPages, 1)} ページ
+            </p>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                disabled={page === 0}
+                onClick={() => setPage((currentPage) => Math.max(currentPage - 1, 0))}
+                className="h-10 rounded-lg border border-[var(--line)] bg-white px-4 font-semibold text-[var(--ink-strong)] disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                前へ
+              </button>
+              <button
+                type="button"
+                disabled={page + 1 >= totalPages}
+                onClick={() => setPage((currentPage) => currentPage + 1)}
+                className="h-10 rounded-lg border border-[var(--line)] bg-white px-4 font-semibold text-[var(--ink-strong)] disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                次へ
+              </button>
+            </div>
           </div>
         ) : null}
       </section>

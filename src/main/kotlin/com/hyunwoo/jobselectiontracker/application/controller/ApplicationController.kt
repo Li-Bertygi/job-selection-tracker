@@ -3,7 +3,9 @@ package com.hyunwoo.jobselectiontracker.application.controller
 import com.hyunwoo.jobselectiontracker.application.dto.ApplicationResponse
 import com.hyunwoo.jobselectiontracker.application.dto.CreateApplicationRequest
 import com.hyunwoo.jobselectiontracker.application.dto.UpdateApplicationRequest
+import com.hyunwoo.jobselectiontracker.application.entity.ApplicationStatus
 import com.hyunwoo.jobselectiontracker.application.service.ApplicationService
+import com.hyunwoo.jobselectiontracker.common.response.PageResponse
 import jakarta.validation.Valid
 import org.springframework.http.HttpStatus
 import org.springframework.web.bind.annotation.DeleteMapping
@@ -13,6 +15,7 @@ import org.springframework.web.bind.annotation.PatchMapping
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
+import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.ResponseStatus
 import org.springframework.web.bind.annotation.RestController
 
@@ -36,10 +39,22 @@ class ApplicationController(
         return applicationService.createApplication(request)
     }
 
-    /** 応募情報一覧を取得するAPI。 */
+    /** 応募情報一覧を検索条件とページング条件つきで取得するAPI。 */
     @GetMapping
-    fun getApplications(): List<ApplicationResponse> {
-        return applicationService.getApplications()
+    fun getApplications(
+        @RequestParam(required = false) status: ApplicationStatus?,
+        @RequestParam(required = false) isArchived: Boolean?,
+        @RequestParam(required = false) keyword: String?,
+        @RequestParam(defaultValue = "0") page: Int,
+        @RequestParam(defaultValue = "20") size: Int
+    ): PageResponse<ApplicationResponse> {
+        return applicationService.getApplications(
+            status = status,
+            isArchived = isArchived,
+            keyword = keyword,
+            page = page,
+            size = size
+        )
     }
 
     /** 指定した応募情報IDの詳細を取得するAPI。 */

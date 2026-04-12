@@ -92,6 +92,26 @@ class StageControllerTest {
     }
 
     @Test
+    fun `POST stages to application owned by another user returns not found`() {
+        val application = createApplication(user = createOtherUser())
+        val request = mapOf(
+            "stageOrder" to 1,
+            "stageType" to "FIRST_INTERVIEW",
+            "stageName" to "一次面接",
+            "status" to "SCHEDULED"
+        )
+
+        mockMvc.perform(
+            post("/applications/${application.id}/stages")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request))
+        )
+            .andExpect(status().isNotFound)
+            .andExpect(jsonPath("$.status").value(404))
+            .andExpect(jsonPath("$.code").value("RESOURCE_NOT_FOUND"))
+    }
+
+    @Test
     fun `POST stages with duplicate stageOrder returns bad request`() {
         val application = createApplication()
         stageRepository.save(
@@ -157,6 +177,58 @@ class StageControllerTest {
     }
 
     @Test
+    fun `PATCH stages with same status does not create status history`() {
+        val application = createApplication()
+        val stage = stageRepository.save(
+            Stage(
+                application = application,
+                stageOrder = 1,
+                stageType = StageType.FIRST_INTERVIEW,
+                stageName = "一次面接",
+                status = StageStatus.SCHEDULED
+            )
+        )
+
+        val request = mapOf("status" to "SCHEDULED")
+
+        mockMvc.perform(
+            patch("/stages/${stage.id}")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request))
+        )
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.status").value("SCHEDULED"))
+
+        val histories = stageStatusHistoryRepository.findAllByStageIdOrderByChangedAtDesc(stage.id!!)
+        assertEquals(0, histories.size)
+    }
+
+    @Test
+    fun `PATCH stages owned by another user returns not found`() {
+        val application = createApplication(user = createOtherUser())
+        val stage = stageRepository.save(
+            Stage(
+                application = application,
+                stageOrder = 1,
+                stageType = StageType.FIRST_INTERVIEW,
+                stageName = "一次面接",
+                status = StageStatus.SCHEDULED
+            )
+        )
+
+        val request = mapOf("status" to "COMPLETED")
+
+        mockMvc.perform(
+            patch("/stages/${stage.id}")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request))
+        )
+            .andExpect(status().isNotFound)
+            .andExpect(jsonPath("$.status").value(404))
+            .andExpect(jsonPath("$.code").value("RESOURCE_NOT_FOUND"))
+    }
+
+    @Test
     fun `PATCH stages with invalid status transition returns bad request`() {
         val application = createApplication()
         val stage = stageRepository.save(
@@ -181,8 +253,7 @@ class StageControllerTest {
             .andExpect(jsonPath("$.code").value("INVALID_REQUEST"))
     }
 
-    private fun createApplication(): Application {
-        val user = createUser()
+    private fun createApplication(user: User = createUser()): Application {
         val company = companyRepository.save(
             Company(
                 user = user,
@@ -203,7 +274,18 @@ class StageControllerTest {
                 priority = 1,
                 isArchived = false
             )
-        )
+            )
+    }
+
+    private fun createOtherUser(): User {
+        return userRepository.findByEmail("other@example.com")
+            ?: userRepository.save(
+                User(
+                    email = "other@example.com",
+                    password = "encoded-password",
+                    name = "他ユーザー"
+                )
+            )
     }
 
     private fun createUser(): User {

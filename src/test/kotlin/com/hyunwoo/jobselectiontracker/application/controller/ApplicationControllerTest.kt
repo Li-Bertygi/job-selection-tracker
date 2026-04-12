@@ -107,8 +107,107 @@ class ApplicationControllerTest {
 
         mockMvc.perform(get("/applications"))
             .andExpect(status().isOk)
-            .andExpect(jsonPath("$.length()").value(1))
-            .andExpect(jsonPath("$[0].id").value(myApplication.id!!))
+            .andExpect(jsonPath("$.content.length()").value(1))
+            .andExpect(jsonPath("$.content[0].id").value(myApplication.id!!))
+            .andExpect(jsonPath("$.totalElements").value(1))
+    }
+
+    @Test
+    fun `GET applications filters by status`() {
+        val matchingApplication = createApplication(
+            user = createUser(),
+            status = ApplicationStatus.INTERVIEW
+        )
+        createApplication(user = createUser(), status = ApplicationStatus.APPLICATION)
+
+        mockMvc.perform(get("/applications").param("status", "INTERVIEW"))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.content.length()").value(1))
+            .andExpect(jsonPath("$.content[0].id").value(matchingApplication.id!!))
+            .andExpect(jsonPath("$.content[0].status").value("INTERVIEW"))
+    }
+
+    @Test
+    fun `GET applications filters by archived flag`() {
+        val archivedApplication = createApplication(
+            user = createUser(),
+            status = ApplicationStatus.APPLICATION,
+            isArchived = true
+        )
+        createApplication(
+            user = createUser(),
+            status = ApplicationStatus.INTERVIEW,
+            isArchived = false
+        )
+
+        mockMvc.perform(get("/applications").param("isArchived", "true"))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.content.length()").value(1))
+            .andExpect(jsonPath("$.content[0].id").value(archivedApplication.id!!))
+            .andExpect(jsonPath("$.content[0].isArchived").value(true))
+    }
+
+    @Test
+    fun `GET applications searches by company name and job title`() {
+        val companyMatch = createApplication(
+            user = createUser(),
+            status = ApplicationStatus.APPLICATION,
+            companyName = "Google"
+        )
+        val jobTitleMatch = createApplication(
+            user = createUser(),
+            status = ApplicationStatus.INTERVIEW,
+            companyName = "OpenAI",
+            jobTitle = "Platform Engineer"
+        )
+        createApplication(
+            user = createUser(),
+            status = ApplicationStatus.TEST,
+            companyName = "LINE",
+            jobTitle = "Frontend Engineer"
+        )
+
+        mockMvc.perform(get("/applications").param("keyword", "goo"))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.content.length()").value(1))
+            .andExpect(jsonPath("$.content[0].id").value(companyMatch.id!!))
+
+        mockMvc.perform(get("/applications").param("keyword", "platform"))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.content.length()").value(1))
+            .andExpect(jsonPath("$.content[0].id").value(jobTitleMatch.id!!))
+    }
+
+    @Test
+    fun `GET applications returns paginated response`() {
+        createApplication(user = createUser(), status = ApplicationStatus.APPLICATION)
+        createApplication(user = createUser(), status = ApplicationStatus.INTERVIEW)
+        createApplication(user = createUser(), status = ApplicationStatus.TEST)
+
+        mockMvc.perform(
+            get("/applications")
+                .param("page", "0")
+                .param("size", "2")
+        )
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.content.length()").value(2))
+            .andExpect(jsonPath("$.page").value(0))
+            .andExpect(jsonPath("$.size").value(2))
+            .andExpect(jsonPath("$.totalElements").value(3))
+            .andExpect(jsonPath("$.totalPages").value(2))
+            .andExpect(jsonPath("$.first").value(true))
+            .andExpect(jsonPath("$.last").value(false))
+    }
+
+    @Test
+    fun `GET applications with invalid pagination returns bad request`() {
+        mockMvc.perform(get("/applications").param("page", "-1"))
+            .andExpect(status().isBadRequest)
+            .andExpect(jsonPath("$.code").value("INVALID_REQUEST"))
+
+        mockMvc.perform(get("/applications").param("size", "101"))
+            .andExpect(status().isBadRequest)
+            .andExpect(jsonPath("$.code").value("INVALID_REQUEST"))
     }
 
     @Test
@@ -135,6 +234,23 @@ class ApplicationControllerTest {
         assertEquals(1, histories.size)
         assertEquals(ApplicationStatus.APPLICATION, histories[0].fromStatus)
         assertEquals(ApplicationStatus.INTERVIEW, histories[0].toStatus)
+    }
+
+    @Test
+    fun `PATCH applications with same status does not create status history`() {
+        val application = createApplication(user = createUser(), status = ApplicationStatus.APPLICATION)
+        val request = mapOf("status" to "APPLICATION")
+
+        mockMvc.perform(
+            patch("/applications/${application.id}")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request))
+        )
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.status").value("APPLICATION"))
+
+        val histories = applicationStatusHistoryRepository.findAllByApplicationIdOrderByChangedAtDesc(application.id!!)
+        assertEquals(0, histories.size)
     }
 
     @Test
@@ -166,25 +282,31 @@ class ApplicationControllerTest {
             .andExpect(jsonPath("$.code").value("INVALID_REQUEST"))
     }
 
-    private fun createApplication(user: User, status: ApplicationStatus): Application {
+    private fun createApplication(
+        user: User,
+        status: ApplicationStatus,
+        companyName: String = "OpenAI",
+        jobTitle: String = "Backend Engineer",
+        isArchived: Boolean = false
+    ): Application {
         return applicationRepository.save(
             Application(
                 user = user,
-                company = createCompany(user),
-                jobTitle = "Backend Engineer",
+                company = createCompany(user, companyName),
+                jobTitle = jobTitle,
                 applicationRoute = "Wantedly",
                 status = status,
                 priority = 1,
-                isArchived = false
+                isArchived = isArchived
             )
         )
     }
 
-    private fun createCompany(user: User): Company {
+    private fun createCompany(user: User, name: String = "OpenAI"): Company {
         return companyRepository.save(
             Company(
                 user = user,
-                name = "OpenAI",
+                name = name,
                 industry = "AI",
                 websiteUrl = "https://openai.com",
                 memo = "志望度高め"

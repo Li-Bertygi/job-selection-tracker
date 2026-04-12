@@ -4,6 +4,7 @@ import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.http.converter.HttpMessageNotReadableException
+import org.slf4j.LoggerFactory
 import org.springframework.web.bind.MethodArgumentNotValidException
 import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.bind.annotation.RestControllerAdvice
@@ -11,6 +12,7 @@ import java.time.LocalDateTime
 
 @RestControllerAdvice
 class GlobalExceptionHandler {
+    private val logger = LoggerFactory.getLogger(javaClass)
 
     @ExceptionHandler(BusinessException::class)
     fun handleBusinessException(
@@ -54,10 +56,12 @@ class GlobalExceptionHandler {
     fun handleDataIntegrityViolationException(
         exception: DataIntegrityViolationException
     ): ResponseEntity<ErrorResponse> {
+        logger.warn("Database integrity constraint was violated.", exception)
+
         return buildResponse(
             status = HttpStatus.CONFLICT,
             code = ErrorCode.DATA_INTEGRITY_VIOLATION,
-            message = exception.rootCause?.message ?: "A database integrity constraint was violated."
+            message = "A database integrity constraint was violated."
         )
     }
 

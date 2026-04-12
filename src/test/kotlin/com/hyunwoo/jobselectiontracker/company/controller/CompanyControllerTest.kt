@@ -145,6 +145,7 @@ class CompanyControllerTest {
             .andExpect(status().isConflict)
             .andExpect(jsonPath("$.status").value(409))
             .andExpect(jsonPath("$.code").value("DATA_INTEGRITY_VIOLATION"))
+            .andExpect(jsonPath("$.message").value("A database integrity constraint was violated."))
     }
 
     private fun createCompany(user: User, name: String): Company {

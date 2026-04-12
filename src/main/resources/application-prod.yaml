@@ -14,3 +14,13 @@ spring:
 
 jwt:
   secret: ${JWT_SECRET}
+
+app:
+  security:
+    public-actuator-paths: /actuator/health,/actuator/health/**
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health

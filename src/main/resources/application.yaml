@@ -14,12 +14,14 @@ jwt:
 app:
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000}
+  security:
+    public-actuator-paths: ${PUBLIC_ACTUATOR_PATHS:/actuator/health,/actuator/health/**}
 
 management:
   endpoints:
     web:
       exposure:
-        include: health,info,prometheus
+        include: ${MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE:health}
   endpoint:
     health:
       probes:

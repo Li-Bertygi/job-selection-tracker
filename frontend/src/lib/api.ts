@@ -24,6 +24,16 @@ export type ApiErrorResponse = {
   errors?: Record<string, string>;
 };
 
+export type PageResponse<T> = {
+  content: T[];
+  page: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
+  first: boolean;
+  last: boolean;
+};
+
 export type CompanyResponse = {
   id: number;
   name: string;
@@ -58,6 +68,14 @@ export type ApplicationResponse = {
   isArchived: boolean;
   createdAt: string | null;
   updatedAt: string | null;
+};
+
+export type GetApplicationsParams = {
+  status?: ApplicationStatus;
+  isArchived?: boolean;
+  keyword?: string;
+  page?: number;
+  size?: number;
 };
 
 export type StageStatus =
@@ -295,9 +313,29 @@ export async function createCompany(
 
 export async function getApplications(
   accessToken: string,
-  tokenType = "Bearer"
-): Promise<ApplicationResponse[]> {
-  return request<ApplicationResponse[]>("/applications", {
+  tokenType = "Bearer",
+  params: GetApplicationsParams = {}
+): Promise<PageResponse<ApplicationResponse>> {
+  const searchParams = new URLSearchParams();
+
+  if (params.status) {
+    searchParams.set("status", params.status);
+  }
+
+  if (params.isArchived !== undefined) {
+    searchParams.set("isArchived", String(params.isArchived));
+  }
+
+  if (params.keyword?.trim()) {
+    searchParams.set("keyword", params.keyword.trim());
+  }
+
+  searchParams.set("page", String(params.page ?? 0));
+  searchParams.set("size", String(params.size ?? 20));
+
+  const queryString = searchParams.toString();
+
+  return request<PageResponse<ApplicationResponse>>(`/applications?${queryString}`, {
     headers: {
       Authorization: buildAuthorizationHeader(accessToken, tokenType),
     },

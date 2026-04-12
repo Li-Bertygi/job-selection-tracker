@@ -9,10 +9,13 @@ import com.hyunwoo.jobselectiontracker.application.history.entity.ApplicationSta
 import com.hyunwoo.jobselectiontracker.application.history.repository.ApplicationStatusHistoryRepository
 import com.hyunwoo.jobselectiontracker.application.repository.ApplicationRepository
 import com.hyunwoo.jobselectiontracker.common.exception.InvalidRequestException
+import com.hyunwoo.jobselectiontracker.common.response.PageResponse
 import com.hyunwoo.jobselectiontracker.common.security.CurrentUserProvider
 import com.hyunwoo.jobselectiontracker.common.security.OwnedResourceFinder
 import com.hyunwoo.jobselectiontracker.company.entity.Company
 import com.hyunwoo.jobselectiontracker.user.entity.User
+import org.springframework.data.domain.PageRequest
+import org.springframework.data.domain.Sort
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
@@ -46,10 +49,30 @@ class ApplicationService(
         return ApplicationResponse.from(applicationRepository.save(application))
     }
 
-    fun getApplications(): List<ApplicationResponse> {
+    fun getApplications(
+        status: ApplicationStatus?,
+        isArchived: Boolean?,
+        keyword: String?,
+        page: Int,
+        size: Int
+    ): PageResponse<ApplicationResponse> {
         val currentUser = findCurrentUser()
-        return applicationRepository.findAllByUserIdOrderByUpdatedAtDesc(currentUser.id!!)
-            .map(ApplicationResponse::from)
+        val normalizedKeyword = keyword?.trim()?.takeIf { it.isNotEmpty() }
+        val pageable = PageRequest.of(
+            validatePage(page),
+            validateSize(size),
+            Sort.by(Sort.Direction.DESC, "updatedAt")
+        )
+
+        return PageResponse.from(
+            applicationRepository.searchByUser(
+                userId = currentUser.id!!,
+                status = status,
+                isArchived = isArchived,
+                keyword = normalizedKeyword,
+                pageable = pageable
+            ).map(ApplicationResponse::from)
+        )
     }
 
     fun getApplication(id: Long): ApplicationResponse {
@@ -100,6 +123,22 @@ class ApplicationService(
 
     private fun findCurrentUser(): User {
         return currentUserProvider.getCurrentUser()
+    }
+
+    private fun validatePage(page: Int): Int {
+        if (page < 0) {
+            throw InvalidRequestException("page は0以上を指定してください。")
+        }
+
+        return page
+    }
+
+    private fun validateSize(size: Int): Int {
+        if (size !in 1..100) {
+            throw InvalidRequestException("size は1以上100以下を指定してください。")
+        }
+
+        return size
     }
 
     private fun saveStatusHistoryIfChanged(
