@@ -1,0 +1,12 @@
+aws_region  = "ap-northeast-1"
+project_name = "job-selection-tracker"
+environment = "prod"
+
+github_repository    = "Li-Bertygi/job-selection-tracker"
+github_deploy_branch = "main"
+
+frontend_repo_name = "job-selection-tracker-frontend"
+backend_repo_name  = "job-selection-tracker-backend"
+
+# Optional. Use this when the AWS account already has a GitHub Actions OIDC provider.
+# github_oidc_provider_arn = "arn:aws:iam::<AWS_ACCOUNT_ID>:oidc-provider/token.actions.githubusercontent.com"
