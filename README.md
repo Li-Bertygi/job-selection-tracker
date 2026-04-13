@@ -550,8 +550,7 @@ GitHub Actions では以下を自動実行します。
 
 主に以下の Secrets を使用します。
 
-- `AWS_ACCESS_KEY_ID`
-- `AWS_SECRET_ACCESS_KEY`
+- `AWS_ROLE_TO_ASSUME`
 - `AWS_REGION`
 - `EC2_HOST`
 - `EC2_USERNAME`
@@ -564,6 +563,9 @@ GitHub Actions では以下を自動実行します。
 - `JWT_ACCESS_TOKEN_EXPIRATION_SECONDS`
 - `JWT_TOKEN_TYPE`
 - `CORS_ALLOWED_ORIGINS`
+
+AWS 認証は long-lived access key を GitHub Secrets に保存せず、GitHub Actions OIDC で AWS IAM Role を assume する構成です。
+Terraform で `github_repository` を設定すると、`deploy-ec2.yml` 用の OIDC Role を作成できます。
 
 ### デプロイ確認
 
@@ -597,10 +599,14 @@ Terraform では以下を定義しています。
 - Security Group
 - IAM Role / Instance Profile
 - Docker / Docker Compose を導入する `user_data`
+- GitHub Actions OIDC 用 IAM Role
 
 対象ファイル:
 
 - `terraform/envs/dev`
+  - EC2 / ECR / Security Group などの dev 検証用インフラ
+- `terraform/envs/github-oidc`
+  - GitHub Actions から AWS IAM Role を assume するための永続的な認証基盤
 - `terraform/modules/app_platform`
 
 検証内容:
@@ -611,6 +617,20 @@ Terraform では以下を定義しています。
 
 検証時は既存の手動デプロイ済みリソースと衝突しないように、`job-selection-tracker-tf-*` の検証用リソース名を使用しました。  
 検証後、作成した Terraform 管理リソースは `terraform destroy` で削除済みです。
+
+GitHub Actions OIDC Role は `terraform/envs/github-oidc` で dev 検証環境とは別 state として管理します。
+これにより、`terraform/envs/dev` を `destroy` してもデプロイ用 IAM Role は削除されません。
+
+GitHub Actions OIDC Role を作成する場合は、`terraform/envs/github-oidc/terraform.tfvars` で以下を設定します。
+
+```hcl
+github_repository    = "Li-Bertygi/job-selection-tracker"
+github_deploy_branch = "main"
+```
+
+AWS アカウントに GitHub Actions OIDC Provider がすでに存在する場合は、`github_oidc_provider_arn` に既存 ARN を指定します。
+
+`terraform/envs/github-oidc` で `terraform apply` 後に出力される `github_actions_role_arn` を GitHub Secret `AWS_ROLE_TO_ASSUME` に登録します。
 
 ---
 
@@ -664,5 +684,4 @@ npm run build
 - SSH デプロイから SSM Run Command ベースのデプロイへの改善
 - ALB / HTTPS 対応
 - RDS への DB 分離
-- GitHub Actions の AWS 認証を access key 方式から OIDC ベースへ改善
 - Terraform state の remote backend 化

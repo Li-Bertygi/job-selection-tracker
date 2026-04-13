@@ -224,7 +224,8 @@ No valid credential sources found
 
 ### 原因
 
-GitHub Secrets には AWS credentials を登録していましたが、ローカル PowerShell セッションには Terraform 用の AWS 環境変数が設定されていませんでした。
+GitHub Actions のデプロイは OIDC で AWS IAM Role を assume しますが、ローカル PowerShell から Terraform を実行する場合は別途 AWS 認証情報が必要です。
+この時点では Terraform 用の AWS 環境変数がローカルセッションに設定されていませんでした。
 
 ### 対応
 
