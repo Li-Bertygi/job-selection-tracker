@@ -622,6 +622,26 @@ EC2 instance Role:
 - `AmazonSSMManagedInstanceCore`
 - `AmazonEC2ContainerRegistryReadOnly`
 
+### Terraform apply 時の注意
+
+SSM 用 inline policy を GitHub Actions deploy Role に追加する際、ローカル Terraform 実行ユーザーに `iam:PutRolePolicy` がなく、以下のエラーが発生しました。
+
+```text
+not authorized to perform: iam:PutRolePolicy
+```
+
+対応として、対象 role に限定して inline policy を更新できる権限を付与しました。
+
+```text
+job-selection-tracker-prod-github-actions-deploy-role
+```
+
+その後、`terraform apply` により SSM deploy policy の追加が成功しました。
+
+```text
+Apply complete! Resources: 1 added, 0 changed, 0 destroyed.
+```
+
 ### 注意点
 
 SSM Run Command の対象 EC2 は、SSM Agent が起動していて、instance profile に `AmazonSSMManagedInstanceCore` が付与されている必要があります。
@@ -647,6 +667,8 @@ Build and push frontend image
 Render deployment files
 Deploy on EC2 via SSM
 ```
+
+SSM Run Command 移行後の workflow 実行でも、`Build, Push, and Deploy` job が成功することを確認しました。
 
 フロントエンド:
 

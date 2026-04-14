@@ -362,6 +362,21 @@ CORS_ALLOWED_ORIGINS
 SSM 方式の検証では、`Copy deployment files to EC2` / `Deploy on EC2` の SSH step は使用しません。
 検証時は `Deploy on EC2 via SSM` step が成功し、EC2 上の `docker compose ps` と Actuator health が正常であることを確認します。
 
+### SSM Run Command 移行後のデプロイ成功確認
+
+SSM Run Command 移行後、`deploy-ec2.yml` を手動実行し、`Build, Push, and Deploy` job が成功することを確認しました。
+
+![GitHub Actions SSM deploy success](./image/github_actions_ssm_deploy_success.png)
+
+確認できた主な内容:
+
+- GitHub Actions OIDC による AWS IAM Role assume
+- Amazon ECR への backend / frontend image push
+- `Render deployment files` による compose / env file 生成
+- `Deploy on EC2 via SSM` による EC2 上の Docker Compose 更新
+
+この検証により、GitHub Actions から EC2 の SSH port へ接続せず、SSM Run Command 経由でデプロイできることを確認しました。
+
 ### EC2 上のフロントエンド接続確認
 
 GitHub Actions によるデプロイ後、EC2 のパブリック IP 経由でフロントエンドにアクセスできることを確認しました。
@@ -519,6 +534,27 @@ github_oidc_provider_arn = "arn:aws:iam::<AWS_ACCOUNT_ID>:oidc-provider/token.ac
 ```
 
 この stack はデプロイ認証基盤として維持し、`terraform/envs/dev` の `destroy` 対象から分離しています。
+
+SSM Run Command デプロイ移行時には、GitHub Actions deploy Role に SSM 用 inline policy を追加しました。
+
+```text
+Apply complete! Resources: 1 added, 0 changed, 0 destroyed.
+```
+
+追加した policy:
+
+```text
+job-selection-tracker-prod-github-actions-ssm-deploy
+```
+
+主な権限:
+
+- `ssm:SendCommand`
+- `ssm:GetCommandInvocation`
+- `ssm:ListCommandInvocations`
+- `ssm:ListCommands`
+
+検証後、`ssm:SendCommand` の対象は `*` から対象 EC2 instance ARN に絞り込みました。
 
 ### Terraform remote backend
 

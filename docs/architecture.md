@@ -110,6 +110,7 @@ terraform/envs/github-oidc
   - GitHub Actions OIDC Provider
   - GitHub Actions deploy IAM Role
   - ECR push policy
+  - SSM Run Command deploy policy
 
 terraform/envs/dev
   - ECR repository
@@ -175,7 +176,9 @@ remote state の bootstrap stack 自体は、S3 backend の土台を作るため
 - `terraform/envs/remote-state` は S3 backend と DynamoDB lock table を管理します。
 - `github-oidc` と `dev` は S3 backend に migration 済みです。
 - PostgreSQL は現時点では EC2 上の Compose 内コンテナとして動かす前提です。
-- 現在の EC2 デプロイは SSH / SCP ではなく SSM Run Command ベースです。GitHub Actions の deploy Role が `ssm:SendCommand` を実行し、EC2 側の IAM Role は `AmazonSSMManagedInstanceCore` により SSM Agent と通信します。
+- 現在の EC2 デプロイは SSH / SCP ではなく SSM Run Command ベースです。
+- GitHub Actions の deploy Role が `ssm:SendCommand` を実行し、EC2 側の IAM Role は `AmazonSSMManagedInstanceCore` により SSM Agent と通信します。
+- SSM の command target は、検証後に対象 EC2 instance ARN へ絞り込んでいます。
 
 ## 今後の拡張候補
 
