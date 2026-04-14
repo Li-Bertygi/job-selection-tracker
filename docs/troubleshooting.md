@@ -35,10 +35,10 @@ SSH / TCP 22 / My IP
 
 ### 補足
 
-`22 / 0.0.0.0/0` は長時間開けたままにしない方針です。  
-将来的には GitHub Actions から SSH ではなく、AWS Systems Manager Run Command 経由でデプロイする構成に変更する予定です。
+`22 / 0.0.0.0/0` は長時間開けたままにしない方針です。
+この問題を受けて、現在の deploy workflow は SSH / SCP ではなく AWS Systems Manager Run Command 経由のデプロイへ変更しています。
 
-今回の検証では、GitHub Actions OIDC による ECR push までは成功しており、失敗箇所は EC2 への SCP 接続でした。
+当時の検証では、GitHub Actions OIDC による ECR push までは成功しており、失敗箇所は EC2 への SCP 接続でした。
 Security Group の SSH inbound を一時的に開放した後、`Copy deployment files to EC2` と `Deploy on EC2` まで成功しました。
 
 ---
@@ -574,21 +574,78 @@ backend 設定だけを再読み込みしたい場合に限り、`-reconfigure` 
 
 ---
 
-## 15. 確認済みの正常状態
+## 15. SSM Run Command デプロイへ移行する
+
+### 背景
+
+SSH / SCP ベースのデプロイでは、GitHub-hosted runner から EC2 の `22` 番ポートへ接続できる必要があります。
+そのため、検証時に Security Group の SSH inbound を一時的に広げる必要がありました。
+
+### 対応
+
+`deploy-ec2.yml` を SSM Run Command ベースへ変更しました。
+
+変更後の流れ:
+
+1. GitHub Actions が OIDC で AWS IAM Role を assume
+2. Docker image を build / ECR push
+3. workflow runner 上で `docker-compose.prod.yml` と `.env` を生成
+4. `aws ssm send-command` で EC2 に `AWS-RunShellScript` を送信
+5. EC2 上で ECR login、`docker compose pull`、`docker compose up -d` を実行
+
+GitHub Secrets は SSH 用 secret ではなく、SSM 対象 instance ID を使用します。
+
+```text
+EC2_INSTANCE_ID
+```
+
+不要になった secret:
+
+```text
+EC2_HOST
+EC2_USERNAME
+EC2_SSH_PRIVATE_KEY
+```
+
+### 必要な AWS 側の権限
+
+GitHub Actions deploy Role:
+
+- `ssm:SendCommand`
+- `ssm:GetCommandInvocation`
+- `ssm:ListCommandInvocations`
+- `ssm:ListCommands`
+- ECR push に必要な権限
+
+EC2 instance Role:
+
+- `AmazonSSMManagedInstanceCore`
+- `AmazonEC2ContainerRegistryReadOnly`
+
+### 注意点
+
+SSM Run Command の対象 EC2 は、SSM Agent が起動していて、instance profile に `AmazonSSMManagedInstanceCore` が付与されている必要があります。
+
+Terraform で作成する EC2 では、`user_data` で `amazon-ssm-agent` を起動し、EC2 Role に `AmazonSSMManagedInstanceCore` を付与しています。
+
+---
+
+## 16. 確認済みの正常状態
 
 ### AWS EC2 デプロイ
 
-GitHub Actions の `deploy-ec2.yml` を手動実行し、`Build, Push, and Deploy` job が成功することを確認しました。
+GitHub Actions の `deploy-ec2.yml` は OIDC による AWS 認証と ECR push まで成功確認済みです。
+SSH / SCP ベースの deploy step も過去に成功確認済みですが、現在は SSM Run Command ベースへ移行しています。
 
-確認済みの主なステップ:
+現在の workflow で確認対象となる主なステップ:
 
 ```text
 Configure AWS credentials
 Login to Amazon ECR
 Build and push backend image
 Build and push frontend image
-Copy deployment files to EC2
-Deploy on EC2
+Render deployment files
+Deploy on EC2 via SSM
 ```
 
 フロントエンド:

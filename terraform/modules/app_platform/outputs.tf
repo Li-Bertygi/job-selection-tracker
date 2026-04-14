@@ -6,6 +6,10 @@ output "ec2_public_dns" {
   value = aws_instance.app.public_dns
 }
 
+output "ec2_instance_id" {
+  value = aws_instance.app.id
+}
+
 output "frontend_repository_url" {
   value = aws_ecr_repository.frontend.repository_url
 }

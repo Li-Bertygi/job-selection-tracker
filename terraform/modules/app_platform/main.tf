@@ -50,12 +50,16 @@ resource "aws_security_group" "app" {
   description = "Security group for Job Application Tracker"
   vpc_id      = data.aws_vpc.default.id
 
-  ingress {
-    description = "SSH"
-    from_port   = 22
-    to_port     = 22
-    protocol    = "tcp"
-    cidr_blocks = [var.ssh_allowed_cidr]
+  dynamic "ingress" {
+    for_each = var.enable_ssh_ingress ? [1] : []
+
+    content {
+      description = "SSH"
+      from_port   = 22
+      to_port     = 22
+      protocol    = "tcp"
+      cidr_blocks = [var.ssh_allowed_cidr]
+    }
   }
 
   ingress {

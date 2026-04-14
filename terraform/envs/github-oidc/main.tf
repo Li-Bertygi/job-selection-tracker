@@ -88,3 +88,35 @@ resource "aws_iam_role_policy" "github_actions_ecr_push" {
     ]
   })
 }
+
+resource "aws_iam_role_policy" "github_actions_ssm_deploy" {
+  name = "${local.name_prefix}-github-actions-ssm-deploy"
+  role = aws_iam_role.github_actions_deploy.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "ssm:SendCommand"
+        ]
+        Resource = concat(
+          [
+            "arn:aws:ssm:${var.aws_region}::document/AWS-RunShellScript"
+          ],
+          var.ssm_target_instance_arns
+        )
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "ssm:GetCommandInvocation",
+          "ssm:ListCommandInvocations",
+          "ssm:ListCommands"
+        ]
+        Resource = "*"
+      }
+    ]
+  })
+}

@@ -45,3 +45,9 @@ variable "backend_repo_name" {
   type        = string
   default     = "job-selection-tracker-backend"
 }
+
+variable "ssm_target_instance_arns" {
+  description = "EC2 instance ARNs that GitHub Actions can target with SSM Run Command. Use specific ARNs in production."
+  type        = list(string)
+  default     = ["*"]
+}

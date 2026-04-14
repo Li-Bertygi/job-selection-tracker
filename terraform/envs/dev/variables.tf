@@ -28,6 +28,12 @@ variable "ssh_allowed_cidr" {
   default     = "0.0.0.0/0"
 }
 
+variable "enable_ssh_ingress" {
+  description = "Whether to open inbound SSH on the application security group. SSM deployment does not require SSH."
+  type        = bool
+  default     = false
+}
+
 variable "ssh_public_key" {
   description = "Optional SSH public key to register as an EC2 key pair."
   type        = string

@@ -34,7 +34,7 @@ flowchart TD
     STS --> IAM
     IAM -->|ECR push permission| ECR
     GHA -->|Build & Push| ECR
-    GHA -->|SSH Deploy| EC2
+    GHA -->|SSM Run Command| EC2
     ECR -->|docker pull| EC2
 
     TF -->|Provision dev infra| ECR
@@ -59,7 +59,7 @@ flowchart TD
 2. GitHub Actions は OIDC token を使って AWS STS の `AssumeRoleWithWebIdentity` を実行し、デプロイ用 IAM Role を assume します。
 3. バックエンドとフロントエンドの Docker イメージをビルドします。
 4. assume した IAM Role の権限で、ビルドしたイメージを Amazon ECR に push します。
-5. GitHub Actions から EC2 に接続し、`docker compose pull && docker compose up -d` を実行します。
+5. GitHub Actions は AWS Systems Manager Run Command を実行し、EC2 上で `docker compose pull && docker compose up -d` を実行します。
 
 ## CI/CD 認証設計
 
@@ -71,12 +71,16 @@ flowchart LR
     Token[GitHub OIDC Token]
     STS[AWS STS]
     Role[IAM Role for Deploy]
+    SSM[AWS Systems Manager]
     ECR[(Amazon ECR)]
+    EC2[Amazon EC2]
 
     GHA -->|request OIDC token| Token
     Token -->|AssumeRoleWithWebIdentity| STS
     STS -->|temporary credentials| Role
     Role -->|push images| ECR
+    Role -->|send command| SSM
+    SSM -->|AWS-RunShellScript| EC2
 ```
 
 GitHub Secrets には以下を登録します。
@@ -84,6 +88,7 @@ GitHub Secrets には以下を登録します。
 ```text
 AWS_ROLE_TO_ASSUME
 AWS_REGION
+EC2_INSTANCE_ID
 ```
 
 `AWS_ROLE_TO_ASSUME` は `terraform/envs/github-oidc` の output である `github_actions_role_arn` を使用します。
@@ -170,11 +175,10 @@ remote state の bootstrap stack 自体は、S3 backend の土台を作るため
 - `terraform/envs/remote-state` は S3 backend と DynamoDB lock table を管理します。
 - `github-oidc` と `dev` は S3 backend に migration 済みです。
 - PostgreSQL は現時点では EC2 上の Compose 内コンテナとして動かす前提です。
-- 現在の EC2 デプロイは SSH / SCP ベースです。検証時のみ SSH inbound を一時的に開放し、今後は SSM Run Command ベースへ移行する予定です。
+- 現在の EC2 デプロイは SSH / SCP ではなく SSM Run Command ベースです。GitHub Actions の deploy Role が `ssm:SendCommand` を実行し、EC2 側の IAM Role は `AmazonSSMManagedInstanceCore` により SSM Agent と通信します。
 
 ## 今後の拡張候補
 
-- SSH デプロイから SSM Run Command への移行
 - RDS への切り出し
 - ALB + HTTPS 対応
 - Route 53 によるドメイン管理

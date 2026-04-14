@@ -2,10 +2,12 @@
 set -euxo pipefail
 
 dnf update -y
-dnf install -y docker awscli
+dnf install -y docker awscli amazon-ssm-agent
 
 systemctl enable docker
 systemctl start docker
+systemctl enable amazon-ssm-agent
+systemctl start amazon-ssm-agent
 
 mkdir -p /usr/local/lib/docker/cli-plugins
 curl -SL https://github.com/docker/compose/releases/latest/download/docker-compose-linux-x86_64 \

@@ -18,6 +18,10 @@ variable "ssh_allowed_cidr" {
   type = string
 }
 
+variable "enable_ssh_ingress" {
+  type = bool
+}
+
 variable "ssh_public_key" {
   type      = string
   sensitive = true

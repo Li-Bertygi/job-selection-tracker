@@ -51,36 +51,85 @@ jobs:
           push: true
           tags: ${{ steps.login-ecr.outputs.registry }}/job-selection-tracker-frontend:${{ steps.vars.outputs.image_tag }}
 
-      - name: Copy deployment files to EC2
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USERNAME }}
-          key: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
-          source: deploy/ec2/docker-compose.prod.yml
-          target: ~/job-selection-tracker
-          strip_components: 2
+      - name: Render deployment files
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ steps.vars.outputs.image_tag }}
+          POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          POSTGRES_DB: ${{ secrets.POSTGRES_DB }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          JWT_ACCESS_TOKEN_EXPIRATION_SECONDS: ${{ secrets.JWT_ACCESS_TOKEN_EXPIRATION_SECONDS }}
+          JWT_TOKEN_TYPE: ${{ secrets.JWT_TOKEN_TYPE }}
+          CORS_ALLOWED_ORIGINS: ${{ secrets.CORS_ALLOWED_ORIGINS }}
+        run: |
+          mkdir -p deploy/rendered
+          cp deploy/ec2/docker-compose.prod.yml deploy/rendered/docker-compose.prod.yml
+          cat > deploy/rendered/.env <<EOF
+          ECR_REGISTRY=${ECR_REGISTRY}
+          IMAGE_TAG=${IMAGE_TAG}
+          POSTGRES_USER=${POSTGRES_USER}
+          POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+          POSTGRES_DB=${POSTGRES_DB}
+          JWT_SECRET=${JWT_SECRET}
+          JWT_ACCESS_TOKEN_EXPIRATION_SECONDS=${JWT_ACCESS_TOKEN_EXPIRATION_SECONDS}
+          JWT_TOKEN_TYPE=${JWT_TOKEN_TYPE}
+          CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS}
+          EOF
+          base64 -w 0 deploy/rendered/docker-compose.prod.yml > deploy/rendered/docker-compose.prod.yml.b64
+          base64 -w 0 deploy/rendered/.env > deploy/rendered/.env.b64
 
-      - name: Deploy on EC2
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USERNAME }}
-          key: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
-          script: |
-            mkdir -p ~/job-selection-tracker
-            cat > ~/job-selection-tracker/.env <<EOF
-            ECR_REGISTRY=${{ steps.login-ecr.outputs.registry }}
-            IMAGE_TAG=${{ steps.vars.outputs.image_tag }}
-            POSTGRES_USER=${{ secrets.POSTGRES_USER }}
-            POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
-            POSTGRES_DB=${{ secrets.POSTGRES_DB }}
-            JWT_SECRET=${{ secrets.JWT_SECRET }}
-            JWT_ACCESS_TOKEN_EXPIRATION_SECONDS=${{ secrets.JWT_ACCESS_TOKEN_EXPIRATION_SECONDS }}
-            JWT_TOKEN_TYPE=${{ secrets.JWT_TOKEN_TYPE }}
-            CORS_ALLOWED_ORIGINS=${{ secrets.CORS_ALLOWED_ORIGINS }}
-            EOF
-            aws ecr get-login-password --region ${{ secrets.AWS_REGION }} | docker login --username AWS --password-stdin ${{ steps.login-ecr.outputs.registry }}
-            cd ~/job-selection-tracker
-            docker compose -f docker-compose.prod.yml --env-file .env pull
-            docker compose -f docker-compose.prod.yml --env-file .env up -d
+      - name: Deploy on EC2 via SSM
+        env:
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+          EC2_INSTANCE_ID: ${{ secrets.EC2_INSTANCE_ID }}
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        run: |
+          COMPOSE_B64="$(cat deploy/rendered/docker-compose.prod.yml.b64)"
+          ENV_B64="$(cat deploy/rendered/.env.b64)"
+          jq -n \
+            --arg instance_id "$EC2_INSTANCE_ID" \
+            --arg comment "Deploy job-selection-tracker ${GITHUB_SHA}" \
+            --arg compose_b64 "$COMPOSE_B64" \
+            --arg env_b64 "$ENV_B64" \
+            --arg aws_region "$AWS_REGION" \
+            --arg ecr_registry "$ECR_REGISTRY" \
+            '{
+              InstanceIds: [$instance_id],
+              DocumentName: "AWS-RunShellScript",
+              Comment: $comment,
+              Parameters: {
+                commands: [
+                  "set -euo pipefail",
+                  "mkdir -p /home/ec2-user/job-selection-tracker",
+                  ("echo \u0027" + $compose_b64 + "\u0027 | base64 -d > /home/ec2-user/job-selection-tracker/docker-compose.prod.yml"),
+                  ("echo \u0027" + $env_b64 + "\u0027 | base64 -d > /home/ec2-user/job-selection-tracker/.env"),
+                  "chown -R ec2-user:ec2-user /home/ec2-user/job-selection-tracker",
+                  ("aws ecr get-login-password --region " + $aws_region + " | docker login --username AWS --password-stdin " + $ecr_registry),
+                  "cd /home/ec2-user/job-selection-tracker",
+                  "docker compose -f docker-compose.prod.yml --env-file .env pull",
+                  "docker compose -f docker-compose.prod.yml --env-file .env up -d"
+                ]
+              }
+            }' > deploy/rendered/ssm-command.json
+          COMMAND_ID="$(
+            aws ssm send-command \
+              --region "$AWS_REGION" \
+              --cli-input-json file://deploy/rendered/ssm-command.json \
+              --query "Command.CommandId" \
+              --output text
+          )"
+          set +e
+          aws ssm wait command-executed \
+            --region "$AWS_REGION" \
+            --command-id "$COMMAND_ID" \
+            --instance-id "$EC2_INSTANCE_ID"
+          WAIT_EXIT=$?
+          set -e
+          aws ssm get-command-invocation \
+            --region "$AWS_REGION" \
+            --command-id "$COMMAND_ID" \
+            --instance-id "$EC2_INSTANCE_ID" \
+            --query "{Status:Status,StandardOutputContent:StandardOutputContent,StandardErrorContent:StandardErrorContent}" \
+            --output json
+          exit "$WAIT_EXIT"

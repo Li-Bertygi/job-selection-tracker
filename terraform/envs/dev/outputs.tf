@@ -8,6 +8,11 @@ output "ec2_public_dns" {
   value       = module.app_platform.ec2_public_dns
 }
 
+output "ec2_instance_id" {
+  description = "EC2 instance ID used by SSM Run Command deployment."
+  value       = module.app_platform.ec2_instance_id
+}
+
 output "frontend_repository_url" {
   description = "ECR URL for the frontend repository."
   value       = module.app_platform.frontend_repository_url
